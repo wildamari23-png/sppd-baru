@@ -61,44 +61,50 @@ function loadAllData() {
      } catch(e) {}
   }
 
-  return { db: db, settings: settings, absensiStatus: loadAbsensiStatus_() };
+  return { db: db, settings: settings, absensiStatus: {} };
 }
 
 
 // ==========================================
 // FUNGSI STATUS ABSENSI PEGAWAI
 // ==========================================
-function getAbsensiStatus(pegawaiIds) {
-  const allStatus = loadAbsensiStatus_();
-  if (!pegawaiIds || pegawaiIds.length === 0) return allStatus;
-
-  const filtered = {};
-  pegawaiIds.forEach(id => {
-    const key = String(id || '').trim();
-    if (key && allStatus[key]) filtered[key] = allStatus[key];
-  });
-  return filtered;
+function getAbsensiStatus(pegawaiIds, tanggalBerangkat) {
+  return loadAbsensiStatus_(tanggalBerangkat, pegawaiIds || []);
 }
 
-function loadAbsensiStatus_() {
+function loadAbsensiStatus_(tanggalBerangkat, pegawaiIds) {
   const statusMap = {};
+  const targetDateKey = normalizeDateKey_(tanggalBerangkat);
+  if (!targetDateKey) return statusMap;
+
+  const allowedIds = {};
+  (pegawaiIds || []).forEach(id => {
+    const key = String(id || '').trim();
+    if (key) allowedIds[key] = true;
+  });
+  const filterById = Object.keys(allowedIds).length > 0;
+
   try {
     const ssAbsensi = SpreadsheetApp.openById(ABSENSI_SPREADSHEET_ID);
     const sheet = ssAbsensi.getSheetByName(ABSENSI_SHEET_NAME);
     if (!sheet || sheet.getLastRow() < 2) return statusMap;
 
     const values = sheet.getDataRange().getValues();
-    // Kolom E = ID_QR, Kolom K = Keterangan/status kehadiran, Kolom L = keterangan TL.
-    // Dibaca dari bawah agar data absensi terbaru per pegawai menjadi prioritas.
+    // Kolom B = tanggal absensi, Kolom E = ID_QR, Kolom K = Keterangan/status kehadiran, Kolom L = keterangan TL.
+    // Dibaca dari bawah agar data absensi terbaru per pegawai pada tanggal berangkat menjadi prioritas.
     for (let i = values.length - 1; i >= 1; i--) {
       const row = values[i];
+      const rowDateKey = normalizeDateKey_(row[1]);
+      if (rowDateKey !== targetDateKey) continue;
+
       const idQr = String(row[4] || '').trim();
-      if (!idQr || statusMap[idQr]) continue;
+      if (!idQr || statusMap[idQr] || (filterById && !allowedIds[idQr])) continue;
 
       const status = String(row[10] || '').trim().toUpperCase();
       const detailTl = String(row[11] || '').trim();
       statusMap[idQr] = {
         id: idQr,
+        tanggal: targetDateKey,
         status: status,
         detailTl: detailTl,
         rowNumber: i + 1,
@@ -109,6 +115,27 @@ function loadAbsensiStatus_() {
     console.error('Gagal membaca spreadsheet absensi: ' + error.message);
   }
   return statusMap;
+}
+
+function normalizeDateKey_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const text = String(value).trim();
+  if (!text) return '';
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return isoMatch[1] + '-' + isoMatch[2] + '-' + isoMatch[3];
+
+  const slashMatch = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (slashMatch) {
+    return slashMatch[3] + '-' + ('0' + slashMatch[2]).slice(-2) + '-' + ('0' + slashMatch[1]).slice(-2);
+  }
+
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return text;
 }
 
 // ==========================================

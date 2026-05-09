@@ -390,7 +390,7 @@
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Berangkat</label>
-                                            <input type="date" v-model="formSppd.tglBerangkat" required @change="calculateDays" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                            <input type="date" v-model="formSppd.tglBerangkat" required @change="calculateDays(); checkAbsensiPegawai(db.pegawai.map(p => p.id))" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Kembali</label>
@@ -406,7 +406,7 @@
                                         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4 border-b pb-2">
                                             <div>
                                                 <h3 class="font-semibold text-teal-800">Daftar Pelaksana (Pegawai)</h3>
-                                                <p class="text-xs text-gray-500">Sistem otomatis mengecek status absensi: IZIN/SAKIT/CUTI/ALPA diblokir, TL/kosong tetap bisa dipilih.</p>
+                                                <p class="text-xs text-gray-500">Sistem mengecek absensi sesuai tanggal berangkat; hanya TL atau kosong yang bisa dipilih.</p>
                                             </div>
                                             <div v-if="isCheckingAbsensi" class="inline-flex items-center gap-2 text-xs font-semibold text-teal-700 bg-teal-50 px-3 py-2 rounded-full">
                                                 <i class="fas fa-circle-notch fa-spin"></i> Mengecek absensi...
@@ -755,6 +755,7 @@
                     activePegawaiDropdown: null,
                     activePengikutIndex: null,
                     absensiStatus: {},
+                    absensiTanggal: '',
                     isCheckingAbsensi: false,
                     pangkatOptions: ['Juru Muda', 'Juru Muda Tingkat I', 'Juru', 'Juru Tingkat I', 'Pengatur Muda', 'Pengatur Muda Tingkat I', 'Pengatur', 'Pengatur Tingkat I', 'Penata Muda', 'Penata Muda Tingkat I', 'Penata', 'Penata Tingkat I', 'Pembina', 'Pembina Tingkat I', 'Pembina Utama Muda', 'Pembina Utama Madya', 'Pembina Utama'],
                     golonganOptions: ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'],
@@ -1023,21 +1024,37 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     return this.filterPegawai(query);
                 },
                 getAbsensiInfo(pegawaiId) {
+                    if (!this.formSppd.tglBerangkat) return { status: 'PILIH TANGGAL', label: 'Pilih tanggal berangkat terlebih dahulu agar absensi dicek tepat tanggal.', available: false, class: 'bg-amber-100 text-amber-700' };
+                    if (this.absensiTanggal !== this.formSppd.tglBerangkat) return { status: 'BELUM CEK', label: 'Status absensi tanggal berangkat belum diperbarui.', available: false, class: 'bg-amber-100 text-amber-700' };
+
                     const raw = this.absensiStatus[String(pegawaiId || '').trim()] || {};
                     const status = String(raw.status || '').trim().toUpperCase();
-                    const blocked = ['IZIN', 'SAKIT', 'CUTI', 'ALPA'];
-                    if (!status) return { status: 'KOSONG', label: 'Belum ada kegiatan / belum absen', available: true, class: 'bg-gray-100 text-gray-700' };
-                    if (blocked.includes(status)) return { status, label: `Tidak bisa dipilih karena status absensi ${status}`, available: false, class: 'bg-red-100 text-red-700' };
+                    if (!status) return { status: 'KOSONG', label: 'Belum ada kegiatan / belum absen pada tanggal berangkat', available: true, class: 'bg-gray-100 text-gray-700' };
                     if (status === 'TL') return { status, label: raw.detailTl ? `Tugas Lapangan: ${raw.detailTl}` : 'Tugas Lapangan', available: true, class: 'bg-indigo-100 text-indigo-700' };
-                    return { status, label: status === 'HADIR' ? 'Hadir dan bisa ditugaskan' : `Status ${status} bisa digunakan`, available: true, class: 'bg-teal-100 text-teal-700' };
+                    return { status, label: `Tidak bisa dipilih pada tanggal berangkat karena status absensi ${status}`, available: false, class: 'bg-red-100 text-red-700' };
                 },
                 checkAbsensiPegawai(ids = []) {
                     const cleanIds = [...new Set(ids.filter(Boolean).map(id => String(id).trim()))];
-                    if (!this.isGAS || cleanIds.length === 0) return;
+                    if (!this.formSppd.tglBerangkat) {
+                        this.absensiStatus = {};
+                        this.absensiTanggal = '';
+                        return;
+                    }
+                    if (!this.isGAS) {
+                        this.absensiTanggal = this.formSppd.tglBerangkat;
+                        return;
+                    }
+                    if (cleanIds.length === 0) return;
+                    const tanggalCek = this.formSppd.tglBerangkat;
                     this.isCheckingAbsensi = true;
                     google.script.run
                         .withSuccessHandler((res) => {
-                            this.absensiStatus = { ...this.absensiStatus, ...(res || {}) };
+                            if (tanggalCek !== this.formSppd.tglBerangkat) { this.isCheckingAbsensi = false; return; }
+                            const nextStatus = res || {};
+                            const currentStatus = this.absensiTanggal === tanggalCek ? { ...this.absensiStatus } : {};
+                            cleanIds.forEach(id => delete currentStatus[id]);
+                            this.absensiStatus = { ...currentStatus, ...nextStatus };
+                            this.absensiTanggal = tanggalCek;
                             const blocked = cleanIds.filter(id => !this.getAbsensiInfo(id).available);
                             if (blocked.length > 0) {
                                 blocked.forEach(id => {
@@ -1055,9 +1072,9 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         })
                         .withFailureHandler((err) => {
                             this.isCheckingAbsensi = false;
-                            Swal.fire('Cek Absensi Gagal', 'Tidak bisa membaca spreadsheet absensi: ' + err.message, 'warning');
+                            Swal.fire('Cek Absensi Gagal', 'Tidak bisa membaca spreadsheet absensi tanggal berangkat: ' + err.message, 'warning');
                         })
-                        .getAbsensiStatus(cleanIds);
+                        .getAbsensiStatus(cleanIds, tanggalCek);
                 },
                 selectPegawaiUtama(pegawai) {
                     const info = this.getAbsensiInfo(pegawai.id);
@@ -1133,11 +1150,14 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Termasuk hari H
                         this.formSppd.lamaHari = diffDays > 0 ? diffDays : 0;
                         this.refreshNomorSurat();
+                        this.checkAbsensiPegawai(this.db.pegawai.map(p => p.id));
                     }
                 },
                 resetFormSppd() {
                     this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
                     this.pegawaiSearchUtama = '';
+                    this.absensiStatus = {};
+                    this.absensiTanggal = '';
                     this.refreshNomorSurat();
                 },
                 saveSPPD() {
