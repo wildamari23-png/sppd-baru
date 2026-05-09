@@ -11,7 +11,7 @@ function doGet(e) {
 // ==========================================
 function loadAllData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheets = ['Pegawai', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
+  const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
   const db = {};
   
   sheets.forEach(sheetName => {
@@ -19,7 +19,7 @@ function loadAllData() {
     if (sheet) {
       const data = sheet.getDataRange().getValues();
       if (data.length > 1) {
-        const headers = data[0];
+        const headers = data[0].map(h => String(h).trim());
         const rows = [];
         for (let i = 1; i < data.length; i++) {
           let obj = {};
@@ -83,16 +83,24 @@ function saveDatabase(dbPayload, settingsPayload) {
       sheet.clear(); // Bersihkan data lama
       
       const dataArray = dbPayload[key];
-      if (dataArray && dataArray.length > 0) {
-        const headers = Object.keys(dataArray[0]);
+      const defaultHeaders = {
+        pegawai: ['id', 'nip', 'nama', 'pangkat', 'golongan', 'jabatan'],
+        jabatan: ['id', 'jabatan'],
+        rekening: ['id', 'nama_kegiatan', 'kode_rek_kegiatan', 'nama_sub_Kegiatan', 'kode_rek_sub_kegiatan', 'sumberDana', 'kode_rek_objek_belanja', 'nama_objek_belanja'],
+        shs: ['id', 'kriteria', 'uangHarian', 'penginapan'],
+        lokasi: ['id', 'tujuan', 'jarak', 'transport'],
+        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'laporanHasil', 'createdAt']
+      };
+      const headers = (dataArray && dataArray.length > 0) ? Object.keys(dataArray[0]) : (defaultHeaders[key] || []);
+      if (headers.length > 0) {
         const rows = [headers];
         
-        dataArray.forEach(item => {
+        (dataArray || []).forEach(item => {
           const row = headers.map(h => {
              let val = item[h];
              // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
-             return val;
+             return val === undefined ? '' : val;
           });
           rows.push(row);
         });
