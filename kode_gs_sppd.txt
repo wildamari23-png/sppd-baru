@@ -11,7 +11,7 @@ function doGet(e) {
 // ==========================================
 function loadAllData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheets = ['Pegawai', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
+  const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
   const db = {};
   
   sheets.forEach(sheetName => {
@@ -83,16 +83,24 @@ function saveDatabase(dbPayload, settingsPayload) {
       sheet.clear(); // Bersihkan data lama
       
       const dataArray = dbPayload[key];
-      if (dataArray && dataArray.length > 0) {
-        const headers = Object.keys(dataArray[0]);
+      const defaultHeaders = {
+        pegawai: ['id', 'nip', 'nama', 'pangkat', 'golongan', 'jabatan'],
+        jabatan: ['id', 'jabatan'],
+        rekening: ['id', 'kode', 'kegiatan', 'subKegiatan', 'objek', 'sumberDana'],
+        shs: ['id', 'kriteria', 'uangHarian', 'penginapan'],
+        lokasi: ['id', 'tujuan', 'jarak', 'transport'],
+        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'maksud', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'laporanHasil', 'createdAt']
+      };
+      const headers = (dataArray && dataArray.length > 0) ? Object.keys(dataArray[0]) : (defaultHeaders[key] || []);
+      if (headers.length > 0) {
         const rows = [headers];
         
-        dataArray.forEach(item => {
+        (dataArray || []).forEach(item => {
           const row = headers.map(h => {
              let val = item[h];
              // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
-             return val;
+             return val === undefined ? '' : val;
           });
           rows.push(row);
         });

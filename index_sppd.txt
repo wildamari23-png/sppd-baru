@@ -30,6 +30,8 @@
         ::-webkit-scrollbar-thumb:hover { background: #0f766e; }
         /* Loading Overlay Overlay Gas */
         .gas-loading { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .modern-card { background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,253,250,0.86)); border: 1px solid rgba(20,184,166,0.18); box-shadow: 0 20px 45px rgba(15,118,110,0.08); }
+        .select-search { background-image: linear-gradient(135deg, #f8fafc, #ffffff); }
     </style>
 </head>
 <body>
@@ -186,7 +188,7 @@
                                     <table class="w-full text-sm text-left text-gray-500">
                                         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                             <tr>
-                                                <th class="px-6 py-3">No SPPD</th>
+                                                <th class="px-6 py-3">No SPT/SPD</th>
                                                 <th class="px-6 py-3">Pegawai Utama</th>
                                                 <th class="px-6 py-3">Tujuan</th>
                                                 <th class="px-6 py-3">Tanggal</th>
@@ -194,9 +196,9 @@
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in db.sppd.slice(-5).reverse()" :key="item.id" class="border-b hover:bg-gray-50">
-                                                <td class="px-6 py-4 font-medium text-gray-900">{{ item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium text-gray-900"><div>{{ item.nomorSpt || item.nomor }}</div><div class="text-xs text-emerald-600">{{ item.nomorSpd || item.nomor }}</div></td>
                                                 <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}</td>
-                                                <td class="px-6 py-4">{{ item.tujuan }}</td>
+                                                <td class="px-6 py-4">{{ getLokasiName(item.lokasiId) }}</td>
                                                 <td class="px-6 py-4">{{ item.tglBerangkat }} s/d {{ item.tglKembali }}</td>
                                             </tr>
                                             <tr v-if="db.sppd.length === 0">
@@ -209,7 +211,7 @@
                         </div>
 
                         <!-- VIEW: MASTER DATA (Generic Template used for Pegawai, Rekening, SHS, Lokasi) -->
-                        <div v-else-if="['pegawai', 'rekening', 'shs', 'lokasi'].includes(currentView)" :key="currentView" class="space-y-4">
+                        <div v-else-if="['pegawai', 'jabatan', 'rekening', 'shs', 'lokasi'].includes(currentView)" :key="currentView" class="space-y-4">
                             <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                 <div class="relative w-full md:w-64">
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -229,6 +231,9 @@
                                             <tr v-if="currentView === 'pegawai'">
                                                 <th class="px-6 py-3">NIP</th><th class="px-6 py-3">Nama Lengkap</th><th class="px-6 py-3">Pangkat/Gol</th><th class="px-6 py-3">Jabatan</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
+                                            <tr v-else-if="currentView === 'jabatan'">
+                                                <th class="px-6 py-3">ID</th><th class="px-6 py-3">Nama Jabatan</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
                                             <tr v-else-if="currentView === 'rekening'">
                                                 <th class="px-6 py-3">Kode Rek.</th><th class="px-6 py-3">Program/Kegiatan</th><th class="px-6 py-3">Objek Belanja</th><th class="px-6 py-3">Sumber Dana</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
@@ -245,6 +250,9 @@
                                                 <template v-if="currentView === 'pegawai'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.nip }}</td><td class="px-6 py-4">{{ item.nama }}</td><td class="px-6 py-4">{{ item.pangkat }} / {{ item.golongan }}</td><td class="px-6 py-4">{{ item.jabatan }}</td>
                                                 </template>
+                                                <template v-else-if="currentView === 'jabatan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.jabatan }}</td>
+                                                </template>
                                                 <template v-else-if="currentView === 'rekening'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.kode }}</td><td class="px-6 py-4">{{ item.kegiatan }}<br><span class="text-xs text-gray-400">Sub: {{ item.subKegiatan }}</span></td><td class="px-6 py-4">{{ item.objek }}</td><td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ item.sumberDana }}</span></td>
                                                 </template>
@@ -252,7 +260,7 @@
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.kriteria }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.uangHarian) }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.penginapan) }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
-                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tujuan }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
                                                 </template>
                                                 
                                                 <!-- Action Buttons -->
@@ -280,9 +288,24 @@
                                 <form @submit.prevent="saveSPPD" class="space-y-6">
                                     <!-- Section 1: Info Utama -->
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Surat (SPT/SPD)</label>
-                                            <input type="text" v-model="formSppd.nomor" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500" placeholder="094/.../PKM-TP/2026">
+                                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl modern-card">
+                                            <div>
+                                                <label class="block text-sm font-semibold text-teal-800 mb-1">No SPT Otomatis</label>
+                                                <div class="relative">
+                                                    <i class="fas fa-file-signature absolute left-3 top-3 text-teal-500"></i>
+                                                    <input type="text" :value="formSppd.nomorSpt" readonly class="w-full pl-10 p-2.5 border border-teal-200 bg-white rounded-lg text-sm font-semibold text-gray-700 focus:ring-teal-500" placeholder="400.7/001/Tj-Puri/VI/2026">
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">Format: 400.7/nomor otomatis/Tj-Puri/bulan romawi/tahun</p>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-semibold text-emerald-800 mb-1">No SPD Otomatis</label>
+                                                <div class="relative">
+                                                    <i class="fas fa-route absolute left-3 top-3 text-emerald-500"></i>
+                                                    <input type="text" :value="formSppd.nomorSpd" readonly class="w-full pl-10 p-2.5 border border-emerald-200 bg-white rounded-lg text-sm font-semibold text-gray-700 focus:ring-teal-500" placeholder="001/SPD/PKM-TP/VI/2026">
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">Nomor diperbarui otomatis dari tanggal berangkat dan urutan data.</p>
+                                            </div>
+                                            <button type="button" @click="refreshNomorSurat" class="md:col-span-2 justify-self-start text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow transition"><i class="fas fa-rotate mr-1"></i> Refresh Nomor</button>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Beban Rekening / Kegiatan</label>
@@ -324,9 +347,10 @@
                                         <h3 class="font-semibold text-teal-800 mb-4 border-b pb-2">Daftar Pelaksana (Pegawai)</h3>
                                         <div class="mb-4">
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Pegawai Utama</label>
+                                            <input type="text" v-model="pegawaiSearchUtama" class="select-search w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 mb-2" placeholder="Ketik nama/NIP/jabatan untuk mencari pegawai...">
                                             <select v-model="formSppd.pegawaiUtama" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
                                                 <option value="" disabled>Pilih Pegawai Utama</option>
-                                                <option v-for="peg in db.pegawai" :value="peg.id">{{ peg.nip }} - {{ peg.nama }} ({{peg.jabatan}})</option>
+                                                <option v-for="peg in filteredPegawaiUtama" :value="peg.id">{{ peg.nip }} - {{ peg.nama }} ({{peg.jabatan}})</option>
                                             </select>
                                         </div>
                                         
@@ -337,10 +361,13 @@
                                             </div>
                                             <div v-for="(png, index) in formSppd.pengikut" :key="index" class="flex gap-2 mb-2 items-center slide-enter-active">
                                                 <span class="text-sm font-bold text-gray-400 w-6">{{ index + 1 }}.</span>
-                                                <select v-model="png.pegawaiId" required class="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500">
-                                                    <option value="" disabled>Pilih Pengikut</option>
-                                                    <option v-for="peg in db.pegawai" :value="peg.id">{{ peg.nama }}</option>
-                                                </select>
+                                                <div class="flex-1">
+                                                    <input type="text" v-model="png.search" class="select-search w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500 mb-1" placeholder="Cari pengikut...">
+                                                    <select v-model="png.pegawaiId" required class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500">
+                                                        <option value="" disabled>Pilih Pengikut</option>
+                                                        <option v-for="peg in filteredPegawaiPengikut(png.search)" :value="peg.id">{{ peg.nama }} - {{ peg.jabatan }}</option>
+                                                    </select>
+                                                </div>
                                                 <input type="text" v-model="png.keterangan" placeholder="Keterangan (opsional)" class="flex-1 p-2 border border-gray-300 rounded-lg text-sm">
                                                 <button type="button" @click="removePengikut(index)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg"><i class="fas fa-times"></i></button>
                                             </div>
@@ -368,12 +395,13 @@
                                     <table class="w-full text-sm text-left text-gray-500">
                                         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                             <tr>
-                                                <th class="px-6 py-3">No</th><th class="px-6 py-3">Utama</th><th class="px-6 py-3">Maksud</th><th class="px-6 py-3">Tanggal</th><th class="px-6 py-3 text-center">Aksi</th>
+                                                <th class="px-6 py-3">No SPT</th><th class="px-6 py-3">No SPD</th><th class="px-6 py-3">Utama</th><th class="px-6 py-3">Maksud</th><th class="px-6 py-3">Tanggal</th><th class="px-6 py-3 text-center">Aksi</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in db.sppd" :key="item.id" class="border-b hover:bg-gray-50">
-                                                <td class="px-6 py-4 font-medium">{{ item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium">{{ item.nomorSpt || item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium text-emerald-700">{{ item.nomorSpd || item.nomor }}</td>
                                                 <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}<br><span v-if="item.pengikut.length" class="text-xs text-teal-600">+{{item.pengikut.length}} Pengikut</span></td>
                                                 <td class="px-6 py-4 truncate max-w-xs" :title="item.maksud">{{ item.maksud }}</td>
                                                 <td class="px-6 py-4">{{ item.tglBerangkat }}</td>
@@ -520,10 +548,15 @@
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">NIP</label><input v-model="modalForm.nip" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label><input v-model="modalForm.nama" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Pangkat</label><input v-model="modalForm.pangkat" required type="text" placeholder="Penata Muda" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
-                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label><input v-model="modalForm.golongan" required type="text" placeholder="III/a" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Pangkat</label><select v-model="modalForm.pangkat" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"><option value="" disabled>Pilih Pangkat</option><option v-for="p in pangkatOptions" :value="p">{{ p }}</option></select></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label><select v-model="modalForm.golongan" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"><option value="" disabled>Pilih Golongan</option><option v-for="g in golonganOptions" :value="g">{{ g }}</option></select></div>
                             </div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label><input v-model="modalForm.jabatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label><select v-model="modalForm.jabatan" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"><option value="" disabled>Pilih Jabatan</option><option v-for="jab in db.jabatan" :value="jab.jabatan">{{ jab.jabatan }}</option></select><p class="text-xs text-gray-500 mt-1">Pilihan jabatan berasal dari sheet/menu Master Jabatan.</p></div>
+                        </template>
+
+                        <template v-else-if="modal.type === 'jabatan'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">ID Jabatan</label><input v-model="modalForm.id" :readonly="modal.mode === 'edit'" required type="text" placeholder="J1" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Jabatan</label><input v-model="modalForm.jabatan" required type="text" placeholder="Perawat Penyelia" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                         </template>
 
                         <template v-else-if="modal.type === 'rekening'">
@@ -606,19 +639,23 @@
                         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-home' },
                         { id: 'sppd', name: 'Transaksi SPPD', icon: 'fas fa-file-signature' },
                         { id: 'pegawai', name: 'Master Pegawai', icon: 'fas fa-users' },
+                        { id: 'jabatan', name: 'Master Jabatan', icon: 'fas fa-id-badge' },
                         { id: 'rekening', name: 'Master Rekening', icon: 'fas fa-wallet' },
                         { id: 'shs', name: 'Master SHS', icon: 'fas fa-money-bill-wave' },
                         { id: 'lokasi', name: 'Master Lokasi', icon: 'fas fa-map-marker-alt' },
                         { id: 'setting', name: 'Pengaturan', icon: 'fas fa-cogs' }
                     ],
                     db: {
-                        pegawai: [], rekening: [], shs: [], lokasi: [], sppd: []
+                        pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], sppd: []
                     },
                     modal: { isOpen: false, type: '', mode: 'add', editId: null },
                     modalForm: {},
                     modalLaporan: { isOpen: false, sppdId: null, hasil: '' },
+                    pegawaiSearchUtama: '',
+                    pangkatOptions: ['Juru Muda', 'Juru Muda Tingkat I', 'Juru', 'Juru Tingkat I', 'Pengatur Muda', 'Pengatur Muda Tingkat I', 'Pengatur', 'Pengatur Tingkat I', 'Penata Muda', 'Penata Muda Tingkat I', 'Penata', 'Penata Tingkat I', 'Pembina', 'Pembina Tingkat I', 'Pembina Utama Muda', 'Pembina Utama Madya', 'Pembina Utama'],
+                    golonganOptions: ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'],
                     formSppd: {
-                        nomor: '', rekeningId: '', maksud: '', lokasiId: '', 
+                        nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', maksud: '', lokasiId: '', 
                         tglBerangkat: '', tglKembali: '', lamaHari: 0,
                         pegawaiUtama: '', pengikut: []
                     },
@@ -645,6 +682,9 @@
                     return this.db[this.currentView].filter(item => {
                         return Object.values(item).some(val => String(val).toLowerCase().includes(q));
                     });
+                },
+                filteredPegawaiUtama() {
+                    return this.filterPegawai(this.pegawaiSearchUtama);
                 }
             },
             mounted() {
@@ -662,6 +702,8 @@
                             if (response.settings && Object.keys(response.settings).length > 0) {
                                 this.settings = { ...this.settings, ...response.settings };
                             }
+                            this.normalizeDatabase();
+                            this.refreshNomorSurat();
                             this.isSyncing = false;
                         })
                         .withFailureHandler((error) => {
@@ -714,8 +756,10 @@
                     const localData = localStorage.getItem('sppd_db');
                     if (localData) {
                         this.db = JSON.parse(localData);
+                        this.normalizeDatabase();
                     } else {
                         // Insert Default Dummy Data for first load to make app informative
+                        this.db.jabatan.push({id: 'J1', jabatan: 'Perawat Penyelia'}, {id: 'J2', jabatan: 'Bidan'}, {id: 'J3', jabatan: 'Dokter Umum'});
                         this.db.pegawai.push({id: Date.now().toString(), nip: '19800101 200501 1 001', nama: 'Budi Santoso, S.Kep', pangkat: 'Penata Muda', golongan: 'III/a', jabatan: 'Perawat Penyelia'});
                         this.db.rekening.push({id: 'R1', kode: '1.02.01.2.01', kegiatan: 'Pelayanan Kesehatan Primer', subKegiatan: 'Kunjungan Lapangan', objek: 'Belanja Perjalanan Dinas Dalam Daerah', sumberDana: 'BOK'});
                         this.db.shs.push({id: 'S1', kriteria: 'Golongan III', uangHarian: 150000, penginapan: 300000});
@@ -725,6 +769,8 @@
                     
                     const localSettings = localStorage.getItem('sppd_settings');
                     if(localSettings) this.settings = JSON.parse(localSettings);
+                    this.normalizeDatabase();
+                    this.refreshNomorSurat();
                 },
                 saveDB() {
                     // Backup ke Local Storage selalu jalan
@@ -745,10 +791,60 @@
                     }
                 },
                 
+
+                normalizeDatabase() {
+                    const defaults = { pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], sppd: [] };
+                    this.db = { ...defaults, ...this.db };
+                    if (this.db.jabatan.length === 0) {
+                        const uniqueJabatan = [...new Set(this.db.pegawai.map(p => p.jabatan).filter(Boolean))];
+                        this.db.jabatan = uniqueJabatan.map((jabatan, idx) => ({ id: `J${idx + 1}`, jabatan }));
+                    }
+                    this.db.sppd = this.db.sppd.map((item, index) => ({
+                        ...item,
+                        nomorSpt: item.nomorSpt || item.nomor || this.generateNomorSurat('spt', item.tglBerangkat, index + 1),
+                        nomorSpd: item.nomorSpd || item.nomor || this.generateNomorSurat('spd', item.tglBerangkat, index + 1),
+                        pengikut: Array.isArray(item.pengikut) ? item.pengikut : []
+                    }));
+                },
+                getRomanMonth(dateValue) {
+                    const romans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+                    const date = dateValue ? new Date(dateValue) : new Date();
+                    const month = Number.isNaN(date.getTime()) ? new Date().getMonth() : date.getMonth();
+                    return romans[month];
+                },
+                getYearFromDate(dateValue) {
+                    const date = dateValue ? new Date(dateValue) : new Date();
+                    return Number.isNaN(date.getTime()) ? new Date().getFullYear() : date.getFullYear();
+                },
+                getNextNomorUrut(dateValue) {
+                    const year = this.getYearFromDate(dateValue);
+                    return this.db.sppd.filter(item => this.getYearFromDate(item.tglBerangkat || item.createdAt) === year && item.id !== 'DUMMY').length + 1;
+                },
+                generateNomorSurat(type, dateValue, sequence = null) {
+                    const urut = String(sequence || this.getNextNomorUrut(dateValue)).padStart(3, '0');
+                    const romawi = this.getRomanMonth(dateValue);
+                    const tahun = this.getYearFromDate(dateValue);
+                    return type === 'spt' ? `400.7/${urut}/Tj-Puri/${romawi}/${tahun}` : `${urut}/SPD/PKM-TP/${romawi}/${tahun}`;
+                },
+                refreshNomorSurat() {
+                    const dateValue = this.formSppd.tglBerangkat || new Date().toISOString().slice(0, 10);
+                    const sequence = this.getNextNomorUrut(dateValue);
+                    this.formSppd.nomorSpt = this.generateNomorSurat('spt', dateValue, sequence);
+                    this.formSppd.nomorSpd = this.generateNomorSurat('spd', dateValue, sequence);
+                    this.formSppd.nomor = this.formSppd.nomorSpt;
+                },
+                filterPegawai(query = '') {
+                    const q = (query || '').toLowerCase();
+                    if (!q) return this.db.pegawai;
+                    return this.db.pegawai.filter(peg => [peg.nip, peg.nama, peg.jabatan, peg.pangkat, peg.golongan].some(val => String(val || '').toLowerCase().includes(q)));
+                },
+                filteredPegawaiPengikut(query) {
+                    return this.filterPegawai(query);
+                },
                 // CRUD Modals
                 openModal(type) {
                     this.modal = { isOpen: true, type: type, mode: 'add', editId: null };
-                    this.modalForm = {};
+                    this.modalForm = type === 'pegawai' ? { pangkat: '', golongan: '', jabatan: '' } : {};
                 },
                 closeModal() {
                     this.modal.isOpen = false;
@@ -756,7 +852,7 @@
                 saveModalData() {
                     const data = { ...this.modalForm };
                     if(this.modal.mode === 'add') {
-                        data.id = Date.now().toString(); // unique ID
+                        if (!data.id) data.id = Date.now().toString(); // unique ID
                         this.db[this.modal.type].push(data);
                         Swal.fire('Tersimpan!', 'Data berhasil ditambahkan.', 'success');
                     } else {
@@ -787,7 +883,7 @@
 
                 // SPPD Specific Logic
                 addPengikut() {
-                    this.formSppd.pengikut.push({ pegawaiId: '', keterangan: '' });
+                    this.formSppd.pengikut.push({ pegawaiId: '', keterangan: '', search: '' });
                 },
                 removePengikut(index) {
                     this.formSppd.pengikut.splice(index, 1);
@@ -799,16 +895,20 @@
                         const diffTime = Math.abs(end - start);
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Termasuk hari H
                         this.formSppd.lamaHari = diffDays > 0 ? diffDays : 0;
+                        this.refreshNomorSurat();
                     }
                 },
                 resetFormSppd() {
-                    this.formSppd = { nomor: '', rekeningId: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.pegawaiSearchUtama = '';
+                    this.refreshNomorSurat();
                 },
                 saveSPPD() {
                     if(this.formSppd.lamaHari <= 0) {
                         Swal.fire('Error', 'Tanggal kembali harus setelah atau sama dengan tanggal berangkat', 'error'); return;
                     }
-                    const newSppd = { ...this.formSppd, id: Date.now().toString(), createdAt: new Date().toISOString() };
+                    this.refreshNomorSurat();
+                    const newSppd = { ...this.formSppd, pengikut: this.formSppd.pengikut.map(({ search, ...rest }) => rest), id: Date.now().toString(), createdAt: new Date().toISOString() };
                     this.db.sppd.push(newSppd);
                     this.saveDB();
                     Swal.fire('Berhasil', 'Data SPPD tersimpan. Silahkan klik Cetak Dokumen.', 'success');
@@ -817,6 +917,10 @@
                 getPegawaiName(id) {
                     const p = this.db.pegawai.find(x => x.id === id);
                     return p ? p.nama : '-';
+                },
+                getLokasiName(id) {
+                    const lokasi = this.db.lokasi.find(x => x.id === id);
+                    return lokasi ? lokasi.tujuan : '-';
                 },
                 openLaporan(item) {
                     this.modalLaporan.sppdId = item.id;
@@ -839,7 +943,7 @@
                 },
                 exportExcelSPPD() {
                     let csvContent = "data:text/csv;charset=utf-8,";
-                    csvContent += "No SPPD,Pegawai Utama,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
+                    csvContent += "No SPT,No SPD,Pegawai Utama,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
                     
                     this.db.sppd.forEach(row => {
                         const utama = this.getPegawaiName(row.pegawaiUtama);
@@ -847,7 +951,7 @@
                         const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
                         const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
                         
-                        let rowData = `"${row.nomor}","${utama}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
+                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${utama}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
                         csvContent += rowData + "\n";
                     });
                     
@@ -876,7 +980,7 @@
                             this.isSyncing = true;
                             // Inject dummy data structure minimally if entirely empty so headers generate
                             if (this.db.sppd.length === 0) {
-                                this.db.sppd.push({id: 'DUMMY', nomor: '-', rekeningId: '-', maksud: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
+                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', rekeningId: '-', maksud: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
                             }
                             
                             google.script.run
@@ -1000,7 +1104,7 @@
                         doc.text("SURAT PERINTAH TUGAS", centerX, y, { align: 'center' });
                         doc.line(centerX - 30, y+1, centerX + 30, y+1);
                         doc.setFont("times", "normal");
-                        doc.text(`Nomor: ${sppdData.nomor}`, centerX, y+6, { align: 'center' });
+                        doc.text(`Nomor: ${sppdData.nomorSpt || sppdData.nomor}`, centerX, y+6, { align: 'center' });
                         y += 15;
 
                         doc.setFontSize(11);
@@ -1046,7 +1150,9 @@
                         doc.addPage(); y = margin; drawKopSurat();
                         doc.setFont("times", "bold");
                         doc.text("SURAT PERJALANAN DINAS (SPD)", centerX, y, { align: 'center' });
-                        doc.setFont("times", "normal"); y += 10;
+                        doc.setFont("times", "normal");
+                        doc.text(`Nomor: ${sppdData.nomorSpd || sppdData.nomor}`, centerX, y+6, { align: 'center' });
+                        y += 14;
 
                         const spdBody = [
                             ["1", "Pejabat berwenang yang memberi perintah", "Kepala UPTD Puskesmas Tanjung Puri"],
