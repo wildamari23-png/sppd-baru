@@ -288,7 +288,7 @@
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.kriteria }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.uangHarian) }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.penginapan) }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
-                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tujuan }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
                                                 </template>
                                                 
                                                 <!-- Action Buttons -->
