@@ -206,6 +206,14 @@
                                         <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
@@ -239,7 +247,7 @@
                         </div>
 
                         <!-- VIEW: MASTER DATA (Generic Template used for Pegawai, Rekening, SHS, Lokasi) -->
-                        <div v-else-if="['pegawai', 'jabatan', 'rekening', 'shs', 'lokasi'].includes(currentView)" :key="currentView" class="space-y-4">
+                        <div v-else-if="['pegawai', 'jabatan', 'rekening', 'shs', 'lokasi', 'tempatBerangkat'].includes(currentView)" :key="currentView" class="space-y-4">
                             <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                 <div class="relative w-full md:w-64">
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -271,6 +279,9 @@
                                             <tr v-else-if="currentView === 'lokasi'">
                                                 <th class="px-6 py-3">Tujuan</th><th class="px-6 py-3">Jarak (KM)</th><th class="px-6 py-3">Est. Transport</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
+                                            <tr v-else-if="currentView === 'tempatBerangkat'">
+                                                <th class="px-6 py-3">Tempat Berangkat</th><th class="px-6 py-3">Keterangan</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in filteredData" :key="item.id" class="border-b hover:bg-gray-50">
@@ -289,6 +300,9 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
                                                 </template>
                                                 
                                                 <!-- Action Buttons -->
@@ -332,6 +346,20 @@
                                                     <input type="text" :value="formSppd.nomorSpd" readonly class="w-full pl-10 p-2.5 border border-emerald-200 bg-white rounded-lg text-sm font-semibold text-gray-700 focus:ring-teal-500" placeholder="001/SPD/PKM-TP/VI/2026">
                                                 </div>
                                                 <p class="text-xs text-gray-500 mt-1">Nomor diperbarui otomatis dari tanggal berangkat dan urutan data.</p>
+                                            </div>
+                                            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-teal-100 pt-3">
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Surat SPT</label>
+                                                    <input type="date" v-model="formSppd.tanggal_spt" required class="w-full p-2.5 border border-teal-200 rounded-lg focus:ring-teal-500 bg-white">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Surat SPD</label>
+                                                    <input type="date" v-model="formSppd.tanggal_spd" required class="w-full p-2.5 border border-emerald-200 rounded-lg focus:ring-teal-500 bg-white">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Kwitansi</label>
+                                                    <input type="date" v-model="formSppd.tanggal_kwitansi" required class="w-full p-2.5 border border-amber-200 rounded-lg focus:ring-teal-500 bg-white">
+                                                </div>
                                             </div>
                                             <button type="button" @click="refreshNomorSurat" class="md:col-span-2 justify-self-start text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow transition"><i class="fas fa-rotate mr-1"></i> Refresh Nomor</button>
                                         </div>
@@ -381,6 +409,13 @@
 
                                     <!-- Section 2: Waktu & Lokasi -->
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white border border-gray-100 p-4 rounded-lg">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tempat Berangkat</label>
+                                            <select v-model="formSppd.tempatBerangkatId" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                                <option value="" disabled>Pilih Tempat Berangkat</option>
+                                                <option v-for="tb in db.tempatBerangkat" :value="tb.id">{{ tb.tempat }}</option>
+                                            </select>
+                                        </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Tempat Tujuan</label>
                                             <select v-model="formSppd.lokasiId" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
@@ -675,7 +710,7 @@
                         </template>
 
                         <template v-else-if="modal.type === 'shs'">
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Kriteria / Golongan</label><input v-model="modalForm.kriteria" required type="text" placeholder="Golongan III" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Kriteria / Golongan</label><select v-model="modalForm.kriteria" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white"><option value="" disabled>Pilih Kriteria / Golongan</option><option v-for="opt in shsKriteriaOptions" :value="opt">{{ opt }}</option></select><p class="text-xs text-gray-500 mt-1">Dropdown modern agar standar biaya konsisten.</p></div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Uang Harian (Rp)</label><input v-model.number="modalForm.uangHarian" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Biaya Penginapan (Rp)</label><input v-model.number="modalForm.penginapan" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                         </template>
@@ -684,6 +719,11 @@
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Lokasi Tujuan</label><input v-model="modalForm.tujuan" required type="text" placeholder="Dinas Kesehatan Kab. Sintang" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Jarak (KM)</label><input v-model.number="modalForm.jarak" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Est. Transport / Tiket (Rp)</label><input v-model.number="modalForm.transport" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                        </template>
+
+                        <template v-else-if="modal.type === 'tempatBerangkat'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Tempat Berangkat</label><input v-model="modalForm.tempat" required type="text" placeholder="UPTD Puskesmas Tanjung Puri" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Keterangan</label><input v-model="modalForm.keterangan" type="text" placeholder="Kantor / Poskesdes / lokasi awal" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                         </template>
 
                         <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
@@ -743,10 +783,11 @@
                         { id: 'rekening', name: 'Master Rekening', icon: 'fas fa-wallet' },
                         { id: 'shs', name: 'Master SHS', icon: 'fas fa-money-bill-wave' },
                         { id: 'lokasi', name: 'Master Lokasi', icon: 'fas fa-map-marker-alt' },
+                        { id: 'tempatBerangkat', name: 'Tempat Berangkat', icon: 'fas fa-location-arrow' },
                         { id: 'setting', name: 'Pengaturan', icon: 'fas fa-cogs' }
                     ],
                     db: {
-                        pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], sppd: []
+                        pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], tempatBerangkat: [], sppd: []
                     },
                     modal: { isOpen: false, type: '', mode: 'add', editId: null },
                     modalForm: {},
@@ -759,8 +800,9 @@
                     isCheckingAbsensi: false,
                     pangkatOptions: ['Juru Muda', 'Juru Muda Tingkat I', 'Juru', 'Juru Tingkat I', 'Pengatur Muda', 'Pengatur Muda Tingkat I', 'Pengatur', 'Pengatur Tingkat I', 'Penata Muda', 'Penata Muda Tingkat I', 'Penata', 'Penata Tingkat I', 'Pembina', 'Pembina Tingkat I', 'Pembina Utama Muda', 'Pembina Utama Madya', 'Pembina Utama'],
                     golonganOptions: ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'],
+                    shsKriteriaOptions: ['Golongan I', 'Golongan II', 'Golongan III', 'Golongan IV', 'Pejabat Eselon IV', 'Pejabat Eselon III', 'Pejabat Eselon II', 'Non ASN / Tenaga Kontrak'],
                     formSppd: {
-                        nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', lokasiId: '', 
+                        nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', tempatBerangkatId: '', lokasiId: '', 
                         tglBerangkat: '', tglKembali: '', lamaHari: 0,
                         pegawaiUtama: '', pengikut: []
                     },
@@ -902,6 +944,7 @@
                         this.db.rekening.push({id: 'R1', nama_kegiatan: 'Pelayanan Kesehatan Primer', kode_rek_kegiatan: '1.02.01.2.01', nama_sub_Kegiatan: 'Kunjungan Lapangan', kode_rek_sub_kegiatan: '1.02.01.2.01.0001', sumberDana: 'BOK', kode_rek_objek_belanja: '5.1.02.04.01.0001', nama_objek_belanja: 'Belanja Perjalanan Dinas Dalam Daerah'});
                         this.db.shs.push({id: 'S1', kriteria: 'Golongan III', uangHarian: 150000, penginapan: 300000});
                         this.db.lokasi.push({id: 'L1', tujuan: 'Dinas Kesehatan Kab. Sintang', jarak: 5, transport: 50000});
+                        this.db.tempatBerangkat.push({id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default'});
                         localStorage.setItem('sppd_db', JSON.stringify(this.db));
                     }
                     
@@ -931,7 +974,7 @@
                 
 
                 normalizeDatabase() {
-                    const defaults = { pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], sppd: [] };
+                    const defaults = { pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], tempatBerangkat: [], sppd: [] };
                     this.db = { ...defaults, ...this.db };
                     if (this.db.jabatan.length === 0) {
                         const uniqueJabatan = [...new Set(this.db.pegawai.map(p => p.jabatan).filter(Boolean))];
@@ -947,10 +990,15 @@
                         kode_rek_objek_belanja: item.kode_rek_objek_belanja || item.kode || '',
                         nama_objek_belanja: item.nama_objek_belanja || item.objek || ''
                     }));
+                    if (this.db.tempatBerangkat.length === 0) this.db.tempatBerangkat = [{ id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default' }];
                     this.db.sppd = this.db.sppd.map((item, index) => ({
                         ...item,
                         nomorSpt: item.nomorSpt || item.nomor || this.generateNomorSurat('spt', item.tglBerangkat, index + 1),
                         nomorSpd: item.nomorSpd || item.nomor || this.generateNomorSurat('spd', item.tglBerangkat, index + 1),
+                        tanggal_spt: item.tanggal_spt || item.tglBerangkat || '',
+                        tanggal_spd: item.tanggal_spd || item.tglBerangkat || '',
+                        tanggal_kwitansi: item.tanggal_kwitansi || item.tglBerangkat || '',
+                        tempatBerangkatId: item.tempatBerangkatId || (this.db.tempatBerangkat[0]?.id || ''),
                         rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
                         rekeningSubKegiatanKey: item.rekeningSubKegiatanKey || this.getRekeningKeysById(item.rekeningId).subKegiatanKey,
                         pengikut: Array.isArray(item.pengikut) ? item.pengikut : []
@@ -1098,7 +1146,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 // CRUD Modals
                 openModal(type) {
                     this.modal = { isOpen: true, type: type, mode: 'add', editId: null };
-                    this.modalForm = type === 'pegawai' ? { pangkat: '', golongan: '', jabatan: '' } : (type === 'rekening' ? { sumberDana: 'BOK' } : {});
+                    this.modalForm = type === 'pegawai' ? { pangkat: '', golongan: '', jabatan: '' } : (type === 'rekening' ? { sumberDana: 'BOK' } : (type === 'shs' ? { kriteria: '' } : {}));
                 },
                 closeModal() {
                     this.modal.isOpen = false;
@@ -1150,11 +1198,14 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Termasuk hari H
                         this.formSppd.lamaHari = diffDays > 0 ? diffDays : 0;
                         this.refreshNomorSurat();
+                        if (!this.formSppd.tanggal_spt) this.formSppd.tanggal_spt = this.formSppd.tglBerangkat;
+                        if (!this.formSppd.tanggal_spd) this.formSppd.tanggal_spd = this.formSppd.tglBerangkat;
+                        if (!this.formSppd.tanggal_kwitansi) this.formSppd.tanggal_kwitansi = this.formSppd.tglBerangkat;
                         this.checkAbsensiPegawai(this.db.pegawai.map(p => p.id));
                     }
                 },
                 resetFormSppd() {
-                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', tempatBerangkatId: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
                     this.pegawaiSearchUtama = '';
                     this.absensiStatus = {};
                     this.absensiTanggal = '';
@@ -1178,6 +1229,12 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     if(!this.formSppd.rekeningId) {
                         Swal.fire('Rekening belum lengkap', 'Pilih kegiatan, sub kegiatan, dan objek belanja secara berurutan.', 'warning'); return;
                     }
+                    if(!this.formSppd.tempatBerangkatId) {
+                        Swal.fire('Tempat berangkat belum dipilih', 'Pilih tempat berangkat dari master Tempat Berangkat.', 'warning'); return;
+                    }
+                    if(!this.formSppd.tanggal_spt || !this.formSppd.tanggal_spd || !this.formSppd.tanggal_kwitansi) {
+                        Swal.fire('Tanggal surat belum lengkap', 'Isi tanggal SPT, tanggal SPD, dan tanggal kwitansi.', 'warning'); return;
+                    }
                     if(this.formSppd.lamaHari <= 0) {
                         Swal.fire('Error', 'Tanggal kembali harus setelah atau sama dengan tanggal berangkat', 'error'); return;
                     }
@@ -1195,6 +1252,10 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 getLokasiName(id) {
                     const lokasi = this.db.lokasi.find(x => String(x.id) === String(id));
                     return lokasi ? lokasi.tujuan : '-';
+                },
+                getTempatBerangkatName(id) {
+                    const tempat = this.db.tempatBerangkat.find(x => String(x.id) === String(id));
+                    return tempat ? tempat.tempat : 'UPTD Puskesmas Tanjung Puri';
                 },
                 openLaporan(item) {
                     this.modalLaporan.sppdId = item.id;
@@ -1217,15 +1278,16 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 exportExcelSPPD() {
                     let csvContent = "data:text/csv;charset=utf-8,";
-                    csvContent += "No SPT,No SPD,Pegawai Utama,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
+                    csvContent += "No SPT,No SPD,Tanggal SPT,Tanggal SPD,Tanggal Kwitansi,Pegawai Utama,Tempat Berangkat,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
                     
                     this.db.sppd.forEach(row => {
                         const utama = this.getPegawaiName(row.pegawaiUtama);
-                        const lokasi = this.db.lokasi.find(l => l.id === row.lokasiId)?.tujuan || '-';
+                        const lokasi = this.db.lokasi.find(l => String(l.id) === String(row.lokasiId))?.tujuan || '-';
+                        const tempatBerangkat = this.getTempatBerangkatName(row.tempatBerangkatId);
                         const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
                         const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
                         
-                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${utama}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
+                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${row.tanggal_spt || row.tglBerangkat}","${row.tanggal_spd || row.tglBerangkat}","${row.tanggal_kwitansi || row.tglBerangkat}","${utama}","${tempatBerangkat}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
                         csvContent += rowData + "\n";
                     });
                     
@@ -1254,7 +1316,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             this.isSyncing = true;
                             // Inject dummy data structure minimally if entirely empty so headers generate
                             if (this.db.sppd.length === 0) {
-                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', maksud: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
+                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', tanggal_spt: '-', tanggal_spd: '-', tanggal_kwitansi: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', maksud: '-', tempatBerangkatId: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
                             }
                             
                             google.script.run
@@ -1332,7 +1394,8 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         let y = margin;
                         
                         const utama = this.db.pegawai.find(p => p.id === sppdData.pegawaiUtama);
-                        const lokasi = this.db.lokasi.find(l => l.id === sppdData.lokasiId);
+                        const lokasi = this.db.lokasi.find(l => String(l.id) === String(sppdData.lokasiId));
+                        const tempatBerangkat = this.getTempatBerangkatName(sppdData.tempatBerangkatId);
                         const rekening = this.getRekeningInfo(sppdData);
                         
                         const drawKopSurat = () => {
@@ -1360,10 +1423,10 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             y += 8;
                         };
 
-                        const printTtd = (yPos) => {
+                        const printTtd = (yPos, tanggalSurat = sppdData.tglBerangkat) => {
                             doc.setFont("times", "normal");
                             doc.text("Dikeluarkan di : Sintang", pageWidth - 70, yPos);
-                            doc.text(`Pada tanggal   : ${sppdData.tglBerangkat}`, pageWidth - 70, yPos + 5);
+                            doc.text(`Pada tanggal   : ${tanggalSurat || sppdData.tglBerangkat}`, pageWidth - 70, yPos + 5);
                             doc.setFont("times", "bold");
                             doc.text("KEPALA UPTD PUSKESMAS", pageWidth - 70, yPos + 12);
                             doc.text("TANJUNG PURI", pageWidth - 70, yPos + 17);
@@ -1414,11 +1477,14 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         doc.text("Waktu", 20, y); doc.text(":", 45, y);
                         doc.text(`${sppdData.lamaHari} Hari (${sppdData.tglBerangkat} s/d ${sppdData.tglKembali})`, 50, y);
                         y += 10;
+                        doc.text("Berangkat", 20, y); doc.text(":", 45, y);
+                        doc.text(tempatBerangkat, 50, y);
+                        y += 7;
                         doc.text("Tujuan", 20, y); doc.text(":", 45, y);
                         doc.text(lokasi ? lokasi.tujuan : '-', 50, y);
                         y += 20;
 
-                        printTtd(y);
+                        printTtd(y, sppdData.tanggal_spt || sppdData.tglBerangkat);
 
                         // ----------------- DOKUMEN 2: SPD -----------------
                         doc.addPage(); y = margin; drawKopSurat();
@@ -1434,7 +1500,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             ["3", "a. Pangkat dan Golongan\nb. Jabatan", `${utama?utama.pangkat:''} / ${utama?utama.golongan:''}\n${utama?utama.jabatan:''}`],
                             ["4", "Maksud Perjalanan Dinas", sppdData.maksud],
                             ["5", "Alat angkutan yang dipergunakan", "Kendaraan Umum / Dinas"],
-                            ["6", "a. Tempat berangkat\nb. Tempat tujuan", `Puskesmas Tanjung Puri\n${lokasi?lokasi.tujuan:''}`],
+                            ["6", "a. Tempat berangkat\nb. Tempat tujuan", `${tempatBerangkat}\n${lokasi?lokasi.tujuan:''}`],
                             ["7", "a. Lama perjalanan dinas\nb. Tanggal berangkat\nc. Tanggal kembali", `${sppdData.lamaHari} Hari\n${sppdData.tglBerangkat}\n${sppdData.tglKembali}`],
                             ["8", "Pembebanan Anggaran\na. Instansi\nb. Rekening", `Puskesmas Tanjung Puri\n${this.getRekeningLabel(rekening)}`]
                         ];
@@ -1446,7 +1512,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         });
 
                         y = doc.lastAutoTable.finalY + 15;
-                        printTtd(y);
+                        printTtd(y, sppdData.tanggal_spd || sppdData.tglBerangkat);
 
                         // ----------------- DOKUMEN 3: KWITANSI -----------------
                         doc.addPage(); y = margin; drawKopSurat();
@@ -1481,7 +1547,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         doc.text(utama ? utama.nama : '', 20, y+30);
                         doc.text(`NIP. ${utama ? utama.nip : ''}`, 20, y+35);
                         
-                        doc.text("Lunas Dibayar Tanggal : .........................", pageWidth - 80, y);
+                        doc.text(`Lunas Dibayar Tanggal : ${sppdData.tanggal_kwitansi || '.........................'}`, pageWidth - 80, y);
                         doc.text("Bendahara Pengeluaran,", pageWidth - 80, y+5);
                         doc.text("(.........................................)", pageWidth - 80, y+30);
 
