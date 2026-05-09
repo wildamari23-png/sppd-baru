@@ -6,12 +6,22 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+
+const MAIN_SPREADSHEET_ID = '15RpPVRggIkPSP75VkQNt4s37-6EV9hJpDtFK99LfnQU';
+const ABSENSI_SPREADSHEET_ID = '1s1zVQStEiZ9va2HGH-LTOZ6blW-OvajopNjgfEv3EsE';
+const ABSENSI_SHEET_NAME = 'Absensi';
+
+function getDbKey_(sheetName) {
+  if (sheetName === 'TempatBerangkat') return 'tempatBerangkat';
+  return sheetName.toLowerCase();
+}
+
 // ==========================================
 // FUNGSI MEMUAT DATA DARI GOOGLE SHEETS
 // ==========================================
 function loadAllData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheets = ['Pegawai', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
+  const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
+  const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'TempatBerangkat', 'Sppd'];
   const db = {};
   
   sheets.forEach(sheetName => {
@@ -19,7 +29,7 @@ function loadAllData() {
     if (sheet) {
       const data = sheet.getDataRange().getValues();
       if (data.length > 1) {
-        const headers = data[0];
+        const headers = data[0].map(h => String(h).trim());
         const rows = [];
         for (let i = 1; i < data.length; i++) {
           let obj = {};
@@ -35,12 +45,12 @@ function loadAllData() {
           }
           rows.push(obj);
         }
-        db[sheetName.toLowerCase()] = rows;
+        db[getDbKey_(sheetName)] = rows;
       } else {
-        db[sheetName.toLowerCase()] = [];
+        db[getDbKey_(sheetName)] = [];
       }
     } else {
-       db[sheetName.toLowerCase()] = [];
+       db[getDbKey_(sheetName)] = [];
     }
   });
   
@@ -56,14 +66,88 @@ function loadAllData() {
      } catch(e) {}
   }
 
-  return { db: db, settings: settings };
+  return { db: db, settings: settings, absensiStatus: {} };
+}
+
+
+// ==========================================
+// FUNGSI STATUS ABSENSI PEGAWAI
+// ==========================================
+function getAbsensiStatus(pegawaiIds, tanggalBerangkat) {
+  return loadAbsensiStatus_(tanggalBerangkat, pegawaiIds || []);
+}
+
+function loadAbsensiStatus_(tanggalBerangkat, pegawaiIds) {
+  const statusMap = {};
+  const targetDateKey = normalizeDateKey_(tanggalBerangkat);
+  if (!targetDateKey) return statusMap;
+
+  const allowedIds = {};
+  (pegawaiIds || []).forEach(id => {
+    const key = String(id || '').trim();
+    if (key) allowedIds[key] = true;
+  });
+  const filterById = Object.keys(allowedIds).length > 0;
+
+  try {
+    const ssAbsensi = SpreadsheetApp.openById(ABSENSI_SPREADSHEET_ID);
+    const sheet = ssAbsensi.getSheetByName(ABSENSI_SHEET_NAME);
+    if (!sheet || sheet.getLastRow() < 2) return statusMap;
+
+    const values = sheet.getDataRange().getValues();
+    // Kolom B = tanggal absensi, Kolom E = ID_QR, Kolom K = Keterangan/status kehadiran, Kolom L = keterangan TL.
+    // Dibaca dari bawah agar data absensi terbaru per pegawai pada tanggal berangkat menjadi prioritas.
+    for (let i = values.length - 1; i >= 1; i--) {
+      const row = values[i];
+      const rowDateKey = normalizeDateKey_(row[1]);
+      if (rowDateKey !== targetDateKey) continue;
+
+      const idQr = String(row[4] || '').trim();
+      if (!idQr || statusMap[idQr] || (filterById && !allowedIds[idQr])) continue;
+
+      const status = String(row[10] || '').trim().toUpperCase();
+      const detailTl = String(row[11] || '').trim();
+      statusMap[idQr] = {
+        id: idQr,
+        tanggal: targetDateKey,
+        status: status,
+        detailTl: detailTl,
+        rowNumber: i + 1,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } catch (error) {
+    console.error('Gagal membaca spreadsheet absensi: ' + error.message);
+  }
+  return statusMap;
+}
+
+function normalizeDateKey_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const text = String(value).trim();
+  if (!text) return '';
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return isoMatch[1] + '-' + isoMatch[2] + '-' + isoMatch[3];
+
+  const slashMatch = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (slashMatch) {
+    return slashMatch[3] + '-' + ('0' + slashMatch[2]).slice(-2) + '-' + ('0' + slashMatch[1]).slice(-2);
+  }
+
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return text;
 }
 
 // ==========================================
 // FUNGSI MENYIMPAN DATA KE GOOGLE SHEETS
 // ==========================================
 function saveDatabase(dbPayload, settingsPayload) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
   const lock = LockService.getScriptLock();
   
   // Mencegah bentrok jika ada banyak user menyimpan bersamaan
@@ -72,7 +156,7 @@ function saveDatabase(dbPayload, settingsPayload) {
   try {
     // 1. Simpan Data Master & Transaksi (Tabel DB)
     for (let key in dbPayload) {
-      const sheetName = key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi nama sheet
+      const sheetName = key === 'tempatBerangkat' ? 'TempatBerangkat' : key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi nama sheet
       let sheet = ss.getSheetByName(sheetName);
       
       // Jika sheet belum ada, buat otomatis
@@ -83,16 +167,28 @@ function saveDatabase(dbPayload, settingsPayload) {
       sheet.clear(); // Bersihkan data lama
       
       const dataArray = dbPayload[key];
-      if (dataArray && dataArray.length > 0) {
-        const headers = Object.keys(dataArray[0]);
+      const defaultHeaders = {
+        pegawai: ['id', 'nip', 'nama', 'pangkat', 'golongan', 'jabatan'],
+        jabatan: ['id', 'jabatan'],
+        rekening: ['id', 'nama_kegiatan', 'kode_rek_kegiatan', 'nama_sub_Kegiatan', 'kode_rek_sub_kegiatan', 'sumberDana', 'kode_rek_objek_belanja', 'nama_objek_belanja'],
+        shs: ['id', 'kriteria', 'uangHarian', 'penginapan'],
+        lokasi: ['id', 'tujuan', 'jarak', 'transport'],
+        tempatBerangkat: ['id', 'tempat', 'keterangan'],
+        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'tempatBerangkatId', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'tanggal_spt', 'tanggal_spd', 'tanggal_kwitansi', 'laporanHasil', 'createdAt']
+      };
+      const baseHeaders = defaultHeaders[key] || (dataArray && dataArray.length > 0 ? Object.keys(dataArray[0]) : []);
+      const extraHeaders = [];
+      (dataArray || []).forEach(item => Object.keys(item).forEach(h => { if (baseHeaders.indexOf(h) === -1 && extraHeaders.indexOf(h) === -1) extraHeaders.push(h); }));
+      const headers = baseHeaders.concat(extraHeaders);
+      if (headers.length > 0) {
         const rows = [headers];
         
-        dataArray.forEach(item => {
+        (dataArray || []).forEach(item => {
           const row = headers.map(h => {
              let val = item[h];
              // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
-             return val;
+             return val === undefined ? '' : val;
           });
           rows.push(row);
         });
