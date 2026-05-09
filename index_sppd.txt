@@ -30,6 +30,15 @@
         ::-webkit-scrollbar-thumb:hover { background: #0f766e; }
         /* Loading Overlay Overlay Gas */
         .gas-loading { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .modern-card { background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,253,250,0.86)); border: 1px solid rgba(20,184,166,0.18); box-shadow: 0 20px 45px rgba(15,118,110,0.08); }
+        .select-search { background-image: linear-gradient(135deg, #f8fafc, #ffffff); }
+        @keyframes floatPulse { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes shineMove { 0% { transform: translateX(-120%) rotate(18deg); } 100% { transform: translateX(160%) rotate(18deg); } }
+        .metric-card { position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.55); box-shadow: 0 24px 60px rgba(15,23,42,0.12); transition: transform .25s ease, box-shadow .25s ease; }
+        .metric-card:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 30px 70px rgba(15,23,42,0.18); }
+        .metric-card::before { content: ''; position: absolute; inset: -45%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); animation: shineMove 5s infinite linear; }
+        .metric-icon { animation: floatPulse 3.5s ease-in-out infinite; }
+        .combo-panel { position: absolute; z-index: 60; width: 100%; max-height: 260px; overflow-y: auto; margin-top: .35rem; border-radius: 1rem; border: 1px solid rgba(20,184,166,.25); background: rgba(255,255,255,.98); box-shadow: 0 24px 55px rgba(15,118,110,.16); backdrop-filter: blur(8px); }
     </style>
 </head>
 <body>
@@ -148,32 +157,53 @@
                         
                         <!-- VIEW: DASHBOARD -->
                         <div v-if="currentView === 'dashboard'" key="dashboard" class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-teal-500 hover:shadow-md transition-shadow">
-                                    <div class="flex items-center">
-                                        <div class="p-3 rounded-full bg-teal-100 text-teal-600"><i class="fas fa-users text-2xl"></i></div>
-                                        <div class="ml-4">
-                                            <p class="mb-2 text-sm font-medium text-gray-600">Total Pegawai</p>
-                                            <p class="text-3xl font-bold text-gray-800">{{ db.pegawai.length }}</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                                <div v-for="metric in dashboardMetrics" :key="metric.title" :class="['metric-card rounded-2xl p-6 text-white', metric.gradient]">
+                                    <div class="relative z-10 flex items-start justify-between gap-4">
+                                        <div>
+                                            <p class="text-sm font-semibold uppercase tracking-wider text-white/75">{{ metric.title }}</p>
+                                            <p class="text-4xl font-extrabold mt-3 drop-shadow">{{ metric.value }}</p>
+                                            <p class="text-sm text-white/85 mt-3 leading-relaxed">{{ metric.caption }}</p>
+                                        </div>
+                                        <div class="metric-icon h-14 w-14 rounded-2xl bg-white/20 border border-white/25 flex items-center justify-center shrink-0">
+                                            <i :class="[metric.icon, 'text-2xl']"></i>
+                                        </div>
+                                    </div>
+                                    <div class="relative z-10 mt-5 h-2 rounded-full bg-white/20 overflow-hidden">
+                                        <div class="h-full rounded-full bg-white/80" :style="{ width: metric.progress + '%' }"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="lg:col-span-2 modern-card rounded-2xl p-5">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-800">Monitoring Cepat Bulan Ini</h3>
+                                            <p class="text-sm text-gray-500">Ringkasan perjalanan, pegawai, dan rekening aktif secara real-time.</p>
+                                        </div>
+                                        <span class="px-3 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-700"><i class="fas fa-bolt mr-1"></i>Live</span>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div class="p-4 rounded-xl bg-white border border-teal-100">
+                                            <p class="text-xs text-gray-500">SPPD bulan ini</p>
+                                            <p class="text-2xl font-black text-teal-700">{{ sppdThisMonth.length }}</p>
+                                        </div>
+                                        <div class="p-4 rounded-xl bg-white border border-blue-100">
+                                            <p class="text-xs text-gray-500">Perjalanan aktif</p>
+                                            <p class="text-2xl font-black text-blue-700">{{ activeTrips }}</p>
+                                        </div>
+                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
+                                            <p class="text-xs text-gray-500">Master jabatan</p>
+                                            <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
-                                    <div class="flex items-center">
-                                        <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i class="fas fa-paper-plane text-2xl"></i></div>
-                                        <div class="ml-4">
-                                            <p class="mb-2 text-sm font-medium text-gray-600">Total SPPD</p>
-                                            <p class="text-3xl font-bold text-gray-800">{{ db.sppd.length }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
-                                    <div class="flex items-center">
-                                        <div class="p-3 rounded-full bg-orange-100 text-orange-600"><i class="fas fa-wallet text-2xl"></i></div>
-                                        <div class="ml-4">
-                                            <p class="mb-2 text-sm font-medium text-gray-600">Total Rekening Kegiatan</p>
-                                            <p class="text-3xl font-bold text-gray-800">{{ db.rekening.length }}</p>
-                                        </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -186,7 +216,7 @@
                                     <table class="w-full text-sm text-left text-gray-500">
                                         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                             <tr>
-                                                <th class="px-6 py-3">No SPPD</th>
+                                                <th class="px-6 py-3">No SPT/SPD</th>
                                                 <th class="px-6 py-3">Pegawai Utama</th>
                                                 <th class="px-6 py-3">Tujuan</th>
                                                 <th class="px-6 py-3">Tanggal</th>
@@ -194,9 +224,9 @@
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in db.sppd.slice(-5).reverse()" :key="item.id" class="border-b hover:bg-gray-50">
-                                                <td class="px-6 py-4 font-medium text-gray-900">{{ item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium text-gray-900"><div>{{ item.nomorSpt || item.nomor }}</div><div class="text-xs text-emerald-600">{{ item.nomorSpd || item.nomor }}</div></td>
                                                 <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}</td>
-                                                <td class="px-6 py-4">{{ item.tujuan }}</td>
+                                                <td class="px-6 py-4">{{ getLokasiName(item.lokasiId) }}</td>
                                                 <td class="px-6 py-4">{{ item.tglBerangkat }} s/d {{ item.tglKembali }}</td>
                                             </tr>
                                             <tr v-if="db.sppd.length === 0">
@@ -209,7 +239,7 @@
                         </div>
 
                         <!-- VIEW: MASTER DATA (Generic Template used for Pegawai, Rekening, SHS, Lokasi) -->
-                        <div v-else-if="['pegawai', 'rekening', 'shs', 'lokasi'].includes(currentView)" :key="currentView" class="space-y-4">
+                        <div v-else-if="['pegawai', 'jabatan', 'rekening', 'shs', 'lokasi'].includes(currentView)" :key="currentView" class="space-y-4">
                             <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                 <div class="relative w-full md:w-64">
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -229,8 +259,11 @@
                                             <tr v-if="currentView === 'pegawai'">
                                                 <th class="px-6 py-3">NIP</th><th class="px-6 py-3">Nama Lengkap</th><th class="px-6 py-3">Pangkat/Gol</th><th class="px-6 py-3">Jabatan</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
+                                            <tr v-else-if="currentView === 'jabatan'">
+                                                <th class="px-6 py-3">ID</th><th class="px-6 py-3">Nama Jabatan</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
                                             <tr v-else-if="currentView === 'rekening'">
-                                                <th class="px-6 py-3">Kode Rek.</th><th class="px-6 py-3">Program/Kegiatan</th><th class="px-6 py-3">Objek Belanja</th><th class="px-6 py-3">Sumber Dana</th><th class="px-6 py-3 text-right">Aksi</th>
+                                                <th class="px-6 py-3">Kegiatan</th><th class="px-6 py-3">Sub Kegiatan</th><th class="px-6 py-3">Objek Belanja</th><th class="px-6 py-3">Sumber Dana</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
                                             <tr v-else-if="currentView === 'shs'">
                                                 <th class="px-6 py-3">Golongan / Kriteria</th><th class="px-6 py-3">Uang Harian</th><th class="px-6 py-3">Penginapan</th><th class="px-6 py-3 text-right">Aksi</th>
@@ -245,8 +278,11 @@
                                                 <template v-if="currentView === 'pegawai'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.nip }}</td><td class="px-6 py-4">{{ item.nama }}</td><td class="px-6 py-4">{{ item.pangkat }} / {{ item.golongan }}</td><td class="px-6 py-4">{{ item.jabatan }}</td>
                                                 </template>
+                                                <template v-else-if="currentView === 'jabatan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.jabatan }}</td>
+                                                </template>
                                                 <template v-else-if="currentView === 'rekening'">
-                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.kode }}</td><td class="px-6 py-4">{{ item.kegiatan }}<br><span class="text-xs text-gray-400">Sub: {{ item.subKegiatan }}</span></td><td class="px-6 py-4">{{ item.objek }}</td><td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ item.sumberDana }}</span></td>
+                                                    <td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_kegiatan }}</span><br><span class="text-gray-600">{{ item.nama_kegiatan }}</span></td><td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_sub_kegiatan }}</span><br><span class="text-gray-600">{{ item.nama_sub_Kegiatan }}</span></td><td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_objek_belanja }}</span><br><span class="text-gray-600">{{ item.nama_objek_belanja }}</span></td><td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ item.sumberDana }}</span></td>
                                                 </template>
                                                 <template v-else-if="currentView === 'shs'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.kriteria }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.uangHarian) }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.penginapan) }}</td>
@@ -280,16 +316,62 @@
                                 <form @submit.prevent="saveSPPD" class="space-y-6">
                                     <!-- Section 1: Info Utama -->
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Surat (SPT/SPD)</label>
-                                            <input type="text" v-model="formSppd.nomor" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500" placeholder="094/.../PKM-TP/2026">
+                                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl modern-card">
+                                            <div>
+                                                <label class="block text-sm font-semibold text-teal-800 mb-1">No SPT Otomatis</label>
+                                                <div class="relative">
+                                                    <i class="fas fa-file-signature absolute left-3 top-3 text-teal-500"></i>
+                                                    <input type="text" :value="formSppd.nomorSpt" readonly class="w-full pl-10 p-2.5 border border-teal-200 bg-white rounded-lg text-sm font-semibold text-gray-700 focus:ring-teal-500" placeholder="400.7/001/Tj-Puri/VI/2026">
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">Format: 400.7/nomor otomatis/Tj-Puri/bulan romawi/tahun</p>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-semibold text-emerald-800 mb-1">No SPD Otomatis</label>
+                                                <div class="relative">
+                                                    <i class="fas fa-route absolute left-3 top-3 text-emerald-500"></i>
+                                                    <input type="text" :value="formSppd.nomorSpd" readonly class="w-full pl-10 p-2.5 border border-emerald-200 bg-white rounded-lg text-sm font-semibold text-gray-700 focus:ring-teal-500" placeholder="001/SPD/PKM-TP/VI/2026">
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">Nomor diperbarui otomatis dari tanggal berangkat dan urutan data.</p>
+                                            </div>
+                                            <button type="button" @click="refreshNomorSurat" class="md:col-span-2 justify-self-start text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow transition"><i class="fas fa-rotate mr-1"></i> Refresh Nomor</button>
                                         </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">Beban Rekening / Kegiatan</label>
-                                            <select v-model="formSppd.rekeningId" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
-                                                <option value="" disabled>Pilih Rekening Beban</option>
-                                                <option v-for="rek in db.rekening" :value="rek.id">{{ rek.kode }} - {{ rek.kegiatan }} ({{ rek.sumberDana }})</option>
-                                            </select>
+                                        <div class="md:col-span-2 modern-card rounded-xl p-4">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <div>
+                                                    <label class="block text-sm font-bold text-teal-800">Beban Rekening Bertingkat</label>
+                                                    <p class="text-xs text-gray-500">Pilih kegiatan, lalu sub kegiatan, lalu objek belanja sesuai struktur sheet Rekening.</p>
+                                                </div>
+                                                <i class="fas fa-sitemap text-teal-500 text-xl"></i>
+                                            </div>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode rekening kegiatan + nama kegiatan</label>
+                                                    <select v-model="formSppd.rekeningKegiatanKey" @change="onKegiatanChange" required class="w-full p-2.5 border border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white">
+                                                        <option value="" disabled>Pilih Kegiatan</option>
+                                                        <option v-for="opt in rekeningKegiatanOptions" :value="opt.key">{{ opt.kode }} - {{ opt.nama }}</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode rekening sub kegiatan + nama sub kegiatan</label>
+                                                    <select v-model="formSppd.rekeningSubKegiatanKey" @change="onSubKegiatanChange" :disabled="!formSppd.rekeningKegiatanKey" required class="w-full p-2.5 border border-blue-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white disabled:bg-gray-100">
+                                                        <option value="" disabled>Pilih Sub Kegiatan</option>
+                                                        <option v-for="opt in rekeningSubKegiatanOptions" :value="opt.key">{{ opt.kode }} - {{ opt.nama }}</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode rekening objek belanja + nama objek belanja</label>
+                                                    <select v-model="formSppd.rekeningId" @change="onObjekBelanjaChange" :disabled="!formSppd.rekeningSubKegiatanKey" required class="w-full p-2.5 border border-emerald-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white disabled:bg-gray-100">
+                                                        <option value="" disabled>Pilih Objek Belanja</option>
+                                                        <option v-for="rek in rekeningObjekOptions" :value="rek.id">{{ rek.kode_rek_objek_belanja }} - {{ rek.nama_objek_belanja }} ({{ rek.sumberDana }})</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div v-if="selectedRekening" class="mt-4 p-3 rounded-xl bg-white border border-teal-100 text-sm text-gray-700">
+                                                <span class="font-bold text-teal-700"><i class="fas fa-check-circle mr-1"></i>Terpilih:</span>
+                                                {{ selectedRekening.kode_rek_kegiatan }} {{ selectedRekening.nama_kegiatan }} &raquo;
+                                                {{ selectedRekening.kode_rek_sub_kegiatan }} {{ selectedRekening.nama_sub_Kegiatan }} &raquo;
+                                                {{ selectedRekening.kode_rek_objek_belanja }} {{ selectedRekening.nama_objek_belanja }}
+                                            </div>
                                         </div>
                                         <div class="md:col-span-2">
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Maksud Perjalanan Dinas</label>
@@ -321,13 +403,38 @@
 
                                     <!-- Section 3: Pegawai -->
                                     <div class="bg-white border border-teal-200 p-4 rounded-lg">
-                                        <h3 class="font-semibold text-teal-800 mb-4 border-b pb-2">Daftar Pelaksana (Pegawai)</h3>
+                                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4 border-b pb-2">
+                                            <div>
+                                                <h3 class="font-semibold text-teal-800">Daftar Pelaksana (Pegawai)</h3>
+                                                <p class="text-xs text-gray-500">Sistem otomatis mengecek status absensi: IZIN/SAKIT/CUTI/ALPA diblokir, TL/kosong tetap bisa dipilih.</p>
+                                            </div>
+                                            <div v-if="isCheckingAbsensi" class="inline-flex items-center gap-2 text-xs font-semibold text-teal-700 bg-teal-50 px-3 py-2 rounded-full">
+                                                <i class="fas fa-circle-notch fa-spin"></i> Mengecek absensi...
+                                            </div>
+                                        </div>
                                         <div class="mb-4">
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Pegawai Utama</label>
-                                            <select v-model="formSppd.pegawaiUtama" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
-                                                <option value="" disabled>Pilih Pegawai Utama</option>
-                                                <option v-for="peg in db.pegawai" :value="peg.id">{{ peg.nip }} - {{ peg.nama }} ({{peg.jabatan}})</option>
-                                            </select>
+                                            <div class="relative">
+                                                <input type="text" v-model="pegawaiSearchUtama" @focus="activePegawaiDropdown = 'utama'" @input="formSppd.pegawaiUtama = ''" @blur="closePegawaiDropdown" class="select-search w-full p-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500" placeholder="Ketik nama/NIP/jabatan, hasil langsung muncul...">
+                                                <i class="fas fa-search absolute right-3 top-3 text-teal-500"></i>
+                                                <div v-if="activePegawaiDropdown === 'utama'" class="combo-panel">
+                                                    <button type="button" v-for="peg in filteredPegawaiUtama" :key="peg.id" :disabled="!getAbsensiInfo(peg.id).available" @mousedown.prevent="selectPegawaiUtama(peg)" :class="['w-full text-left px-4 py-3 border-b border-gray-50 transition', getAbsensiInfo(peg.id).available ? 'hover:bg-teal-50' : 'bg-red-50 opacity-70 cursor-not-allowed']">
+                                                        <div class="flex items-start justify-between gap-2">
+                                                            <div>
+                                                                <div class="font-semibold text-gray-800">{{ peg.nama }}</div>
+                                                                <div class="text-xs text-gray-500">{{ peg.nip }} • {{ peg.jabatan }} • {{ peg.pangkat }}/{{ peg.golongan }}</div>
+                                                            </div>
+                                                            <span :class="['text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap', getAbsensiInfo(peg.id).class]">{{ getAbsensiInfo(peg.id).status }}</span>
+                                                        </div>
+                                                        <div class="text-xs mt-1" :class="getAbsensiInfo(peg.id).available ? 'text-teal-700' : 'text-red-700'">{{ getAbsensiInfo(peg.id).label }}</div>
+                                                    </button>
+                                                    <div v-if="filteredPegawaiUtama.length === 0" class="px-4 py-3 text-sm text-gray-500">Tidak ada pegawai yang cocok.</div>
+                                                </div>
+                                            </div>
+                                            <div v-if="formSppd.pegawaiUtama" class="mt-2 p-3 rounded-xl border text-sm" :class="getAbsensiInfo(formSppd.pegawaiUtama).available ? 'bg-teal-50 border-teal-100 text-teal-800' : 'bg-red-50 border-red-100 text-red-800'">
+                                                <span :class="['text-[10px] font-bold px-2 py-1 rounded-full mr-2', getAbsensiInfo(formSppd.pegawaiUtama).class]">{{ getAbsensiInfo(formSppd.pegawaiUtama).status }}</span>
+                                                {{ getAbsensiInfo(formSppd.pegawaiUtama).label }}
+                                            </div>
                                         </div>
                                         
                                         <div>
@@ -337,10 +444,26 @@
                                             </div>
                                             <div v-for="(png, index) in formSppd.pengikut" :key="index" class="flex gap-2 mb-2 items-center slide-enter-active">
                                                 <span class="text-sm font-bold text-gray-400 w-6">{{ index + 1 }}.</span>
-                                                <select v-model="png.pegawaiId" required class="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500">
-                                                    <option value="" disabled>Pilih Pengikut</option>
-                                                    <option v-for="peg in db.pegawai" :value="peg.id">{{ peg.nama }}</option>
-                                                </select>
+                                                <div class="flex-1 relative">
+                                                    <input type="text" v-model="png.search" @focus="activePengikutIndex = index" @input="png.pegawaiId = ''" @blur="closePegawaiDropdown" class="select-search w-full p-2 pr-9 border border-gray-300 rounded-lg text-sm focus:ring-teal-500" placeholder="Ketik nama pengikut...">
+                                                    <i class="fas fa-user-plus absolute right-3 top-2.5 text-teal-500"></i>
+                                                    <div v-if="activePengikutIndex === index" class="combo-panel">
+                                                        <button type="button" v-for="peg in filteredPegawaiPengikut(png.search)" :key="peg.id" :disabled="!getAbsensiInfo(peg.id).available" @mousedown.prevent="selectPengikut(index, peg)" :class="['w-full text-left px-4 py-3 border-b border-gray-50 transition', getAbsensiInfo(peg.id).available ? 'hover:bg-teal-50' : 'bg-red-50 opacity-70 cursor-not-allowed']">
+                                                            <div class="flex items-start justify-between gap-2">
+                                                                <div>
+                                                                    <div class="font-semibold text-gray-800">{{ peg.nama }}</div>
+                                                                    <div class="text-xs text-gray-500">{{ peg.nip }} • {{ peg.jabatan }}</div>
+                                                                </div>
+                                                                <span :class="['text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap', getAbsensiInfo(peg.id).class]">{{ getAbsensiInfo(peg.id).status }}</span>
+                                                            </div>
+                                                            <div class="text-xs mt-1" :class="getAbsensiInfo(peg.id).available ? 'text-teal-700' : 'text-red-700'">{{ getAbsensiInfo(peg.id).label }}</div>
+                                                        </button>
+                                                        <div v-if="filteredPegawaiPengikut(png.search).length === 0" class="px-4 py-3 text-sm text-gray-500">Tidak ada pengikut yang cocok.</div>
+                                                    </div>
+                                                    <div v-if="png.pegawaiId" class="mt-1 text-xs" :class="getAbsensiInfo(png.pegawaiId).available ? 'text-teal-700' : 'text-red-700'">
+                                                        <span :class="['font-bold px-2 py-0.5 rounded-full mr-1', getAbsensiInfo(png.pegawaiId).class]">{{ getAbsensiInfo(png.pegawaiId).status }}</span>{{ getAbsensiInfo(png.pegawaiId).label }}
+                                                    </div>
+                                                </div>
                                                 <input type="text" v-model="png.keterangan" placeholder="Keterangan (opsional)" class="flex-1 p-2 border border-gray-300 rounded-lg text-sm">
                                                 <button type="button" @click="removePengikut(index)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg"><i class="fas fa-times"></i></button>
                                             </div>
@@ -368,12 +491,13 @@
                                     <table class="w-full text-sm text-left text-gray-500">
                                         <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                                             <tr>
-                                                <th class="px-6 py-3">No</th><th class="px-6 py-3">Utama</th><th class="px-6 py-3">Maksud</th><th class="px-6 py-3">Tanggal</th><th class="px-6 py-3 text-center">Aksi</th>
+                                                <th class="px-6 py-3">No SPT</th><th class="px-6 py-3">No SPD</th><th class="px-6 py-3">Utama</th><th class="px-6 py-3">Maksud</th><th class="px-6 py-3">Tanggal</th><th class="px-6 py-3 text-center">Aksi</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in db.sppd" :key="item.id" class="border-b hover:bg-gray-50">
-                                                <td class="px-6 py-4 font-medium">{{ item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium">{{ item.nomorSpt || item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium text-emerald-700">{{ item.nomorSpd || item.nomor }}</td>
                                                 <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}<br><span v-if="item.pengikut.length" class="text-xs text-teal-600">+{{item.pengikut.length}} Pengikut</span></td>
                                                 <td class="px-6 py-4 truncate max-w-xs" :title="item.maksud">{{ item.maksud }}</td>
                                                 <td class="px-6 py-4">{{ item.tglBerangkat }}</td>
@@ -520,17 +644,26 @@
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">NIP</label><input v-model="modalForm.nip" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label><input v-model="modalForm.nama" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Pangkat</label><input v-model="modalForm.pangkat" required type="text" placeholder="Penata Muda" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
-                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label><input v-model="modalForm.golongan" required type="text" placeholder="III/a" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Pangkat</label><select v-model="modalForm.pangkat" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"><option value="" disabled>Pilih Pangkat</option><option v-for="p in pangkatOptions" :value="p">{{ p }}</option></select></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label><select v-model="modalForm.golongan" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"><option value="" disabled>Pilih Golongan</option><option v-for="g in golonganOptions" :value="g">{{ g }}</option></select></div>
                             </div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label><input v-model="modalForm.jabatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label><select v-model="modalForm.jabatan" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"><option value="" disabled>Pilih Jabatan</option><option v-for="jab in db.jabatan" :value="jab.jabatan">{{ jab.jabatan }}</option></select><p class="text-xs text-gray-500 mt-1">Pilihan jabatan berasal dari sheet/menu Master Jabatan.</p></div>
+                        </template>
+
+                        <template v-else-if="modal.type === 'jabatan'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">ID Jabatan</label><input v-model="modalForm.id" :readonly="modal.mode === 'edit'" required type="text" placeholder="J1" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Jabatan</label><input v-model="modalForm.jabatan" required type="text" placeholder="Perawat Penyelia" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                         </template>
 
                         <template v-else-if="modal.type === 'rekening'">
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening</label><input v-model="modalForm.kode" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Program / Kegiatan</label><input v-model="modalForm.kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Sub Kegiatan</label><input v-model="modalForm.subKegiatan" type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Objek Belanja</label><input v-model="modalForm.objek" required type="text" placeholder="Belanja Perjalanan Dinas Dalam Kota" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Kegiatan</label><input v-model="modalForm.nama_kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening Kegiatan</label><input v-model="modalForm.kode_rek_kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Sub Kegiatan</label><input v-model="modalForm.nama_sub_Kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening Sub Kegiatan</label><input v-model="modalForm.kode_rek_sub_kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Objek Belanja</label><input v-model="modalForm.nama_objek_belanja" required type="text" placeholder="Belanja Perjalanan Dinas Dalam Kota" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening Objek Belanja</label><input v-model="modalForm.kode_rek_objek_belanja" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            </div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Sumber Dana</label>
                                 <select v-model="modalForm.sumberDana" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500">
                                     <option value="BOK">BOK (Bantuan Operasional Kesehatan)</option>
@@ -606,19 +739,27 @@
                         { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-home' },
                         { id: 'sppd', name: 'Transaksi SPPD', icon: 'fas fa-file-signature' },
                         { id: 'pegawai', name: 'Master Pegawai', icon: 'fas fa-users' },
+                        { id: 'jabatan', name: 'Master Jabatan', icon: 'fas fa-id-badge' },
                         { id: 'rekening', name: 'Master Rekening', icon: 'fas fa-wallet' },
                         { id: 'shs', name: 'Master SHS', icon: 'fas fa-money-bill-wave' },
                         { id: 'lokasi', name: 'Master Lokasi', icon: 'fas fa-map-marker-alt' },
                         { id: 'setting', name: 'Pengaturan', icon: 'fas fa-cogs' }
                     ],
                     db: {
-                        pegawai: [], rekening: [], shs: [], lokasi: [], sppd: []
+                        pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], sppd: []
                     },
                     modal: { isOpen: false, type: '', mode: 'add', editId: null },
                     modalForm: {},
                     modalLaporan: { isOpen: false, sppdId: null, hasil: '' },
+                    pegawaiSearchUtama: '',
+                    activePegawaiDropdown: null,
+                    activePengikutIndex: null,
+                    absensiStatus: {},
+                    isCheckingAbsensi: false,
+                    pangkatOptions: ['Juru Muda', 'Juru Muda Tingkat I', 'Juru', 'Juru Tingkat I', 'Pengatur Muda', 'Pengatur Muda Tingkat I', 'Pengatur', 'Pengatur Tingkat I', 'Penata Muda', 'Penata Muda Tingkat I', 'Penata', 'Penata Tingkat I', 'Pembina', 'Pembina Tingkat I', 'Pembina Utama Muda', 'Pembina Utama Madya', 'Pembina Utama'],
+                    golonganOptions: ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'],
                     formSppd: {
-                        nomor: '', rekeningId: '', maksud: '', lokasiId: '', 
+                        nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', lokasiId: '', 
                         tglBerangkat: '', tglKembali: '', lamaHari: 0,
                         pegawaiUtama: '', pengikut: []
                     },
@@ -645,6 +786,38 @@
                     return this.db[this.currentView].filter(item => {
                         return Object.values(item).some(val => String(val).toLowerCase().includes(q));
                     });
+                },
+                filteredPegawaiUtama() {
+                    return this.filterPegawai(this.pegawaiSearchUtama);
+                },
+                rekeningKegiatanOptions() {
+                    return this.uniqueRekeningOptions(this.db.rekening, 'kode_rek_kegiatan', 'nama_kegiatan');
+                },
+                rekeningSubKegiatanOptions() {
+                    const rows = this.db.rekening.filter(r => this.rekeningKey(r.kode_rek_kegiatan, r.nama_kegiatan) === this.formSppd.rekeningKegiatanKey);
+                    return this.uniqueRekeningOptions(rows, 'kode_rek_sub_kegiatan', 'nama_sub_Kegiatan');
+                },
+                rekeningObjekOptions() {
+                    return this.db.rekening.filter(r => this.rekeningKey(r.kode_rek_kegiatan, r.nama_kegiatan) === this.formSppd.rekeningKegiatanKey && this.rekeningKey(r.kode_rek_sub_kegiatan, r.nama_sub_Kegiatan) === this.formSppd.rekeningSubKegiatanKey);
+                },
+                selectedRekening() {
+                    return this.db.rekening.find(r => String(r.id) === String(this.formSppd.rekeningId)) || null;
+                },
+                sppdThisMonth() {
+                    const now = new Date();
+                    return this.db.sppd.filter(s => { const d = new Date(s.tglBerangkat || s.createdAt); return !Number.isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+                },
+                activeTrips() {
+                    const today = new Date().toISOString().slice(0, 10);
+                    return this.db.sppd.filter(s => s.tglBerangkat <= today && s.tglKembali >= today).length;
+                },
+                dashboardMetrics() {
+                    return [
+                        { title: 'Total Pegawai', value: this.db.pegawai.length, caption: 'ASN/pegawai siap ditugaskan', icon: 'fas fa-users', gradient: 'bg-gradient-to-br from-teal-500 to-emerald-700', progress: Math.min(100, this.db.pegawai.length * 8) },
+                        { title: 'Total SPT/SPD', value: this.db.sppd.length, caption: `${this.sppdThisMonth.length} perjalanan bulan ini`, icon: 'fas fa-paper-plane', gradient: 'bg-gradient-to-br from-blue-500 to-indigo-700', progress: Math.min(100, this.db.sppd.length * 10) },
+                        { title: 'Objek Rekening', value: this.db.rekening.length, caption: 'Kegiatan, sub, dan objek belanja', icon: 'fas fa-wallet', gradient: 'bg-gradient-to-br from-orange-500 to-amber-700', progress: Math.min(100, this.db.rekening.length * 12) },
+                        { title: 'Perjalanan Aktif', value: this.activeTrips, caption: 'Sedang berlangsung hari ini', icon: 'fas fa-route', gradient: 'bg-gradient-to-br from-fuchsia-500 to-rose-700', progress: Math.min(100, Math.max(12, this.activeTrips * 25)) }
+                    ];
                 }
             },
             mounted() {
@@ -662,6 +835,11 @@
                             if (response.settings && Object.keys(response.settings).length > 0) {
                                 this.settings = { ...this.settings, ...response.settings };
                             }
+                            if (response.absensiStatus && Object.keys(response.absensiStatus).length > 0) {
+                                this.absensiStatus = { ...this.absensiStatus, ...response.absensiStatus };
+                            }
+                            this.normalizeDatabase();
+                            this.refreshNomorSurat();
                             this.isSyncing = false;
                         })
                         .withFailureHandler((error) => {
@@ -702,6 +880,7 @@
                     this.currentView = view;
                     this.mobileMenuOpen = false;
                     this.searchQuery = '';
+                    if (view === 'sppd') this.checkAbsensiPegawai(this.db.pegawai.map(p => p.id));
                 },
                 getMenuName(id) {
                     const menu = this.menus.find(m => m.id === id);
@@ -714,10 +893,12 @@
                     const localData = localStorage.getItem('sppd_db');
                     if (localData) {
                         this.db = JSON.parse(localData);
+                        this.normalizeDatabase();
                     } else {
                         // Insert Default Dummy Data for first load to make app informative
+                        this.db.jabatan.push({id: 'J1', jabatan: 'Perawat Penyelia'}, {id: 'J2', jabatan: 'Bidan'}, {id: 'J3', jabatan: 'Dokter Umum'});
                         this.db.pegawai.push({id: Date.now().toString(), nip: '19800101 200501 1 001', nama: 'Budi Santoso, S.Kep', pangkat: 'Penata Muda', golongan: 'III/a', jabatan: 'Perawat Penyelia'});
-                        this.db.rekening.push({id: 'R1', kode: '1.02.01.2.01', kegiatan: 'Pelayanan Kesehatan Primer', subKegiatan: 'Kunjungan Lapangan', objek: 'Belanja Perjalanan Dinas Dalam Daerah', sumberDana: 'BOK'});
+                        this.db.rekening.push({id: 'R1', nama_kegiatan: 'Pelayanan Kesehatan Primer', kode_rek_kegiatan: '1.02.01.2.01', nama_sub_Kegiatan: 'Kunjungan Lapangan', kode_rek_sub_kegiatan: '1.02.01.2.01.0001', sumberDana: 'BOK', kode_rek_objek_belanja: '5.1.02.04.01.0001', nama_objek_belanja: 'Belanja Perjalanan Dinas Dalam Daerah'});
                         this.db.shs.push({id: 'S1', kriteria: 'Golongan III', uangHarian: 150000, penginapan: 300000});
                         this.db.lokasi.push({id: 'L1', tujuan: 'Dinas Kesehatan Kab. Sintang', jarak: 5, transport: 50000});
                         localStorage.setItem('sppd_db', JSON.stringify(this.db));
@@ -725,6 +906,8 @@
                     
                     const localSettings = localStorage.getItem('sppd_settings');
                     if(localSettings) this.settings = JSON.parse(localSettings);
+                    this.normalizeDatabase();
+                    this.refreshNomorSurat();
                 },
                 saveDB() {
                     // Backup ke Local Storage selalu jalan
@@ -745,10 +928,160 @@
                     }
                 },
                 
+
+                normalizeDatabase() {
+                    const defaults = { pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], sppd: [] };
+                    this.db = { ...defaults, ...this.db };
+                    if (this.db.jabatan.length === 0) {
+                        const uniqueJabatan = [...new Set(this.db.pegawai.map(p => p.jabatan).filter(Boolean))];
+                        this.db.jabatan = uniqueJabatan.map((jabatan, idx) => ({ id: `J${idx + 1}`, jabatan }));
+                    }
+                    this.db.rekening = this.db.rekening.map((item, index) => ({
+                        ...item,
+                        id: item.id || `R${index + 1}`,
+                        nama_kegiatan: item.nama_kegiatan || item.kegiatan || '',
+                        kode_rek_kegiatan: item.kode_rek_kegiatan || item.kode || '',
+                        nama_sub_Kegiatan: item.nama_sub_Kegiatan || item.nama_sub_kegiatan || item.subKegiatan || '',
+                        kode_rek_sub_kegiatan: item.kode_rek_sub_kegiatan || '',
+                        kode_rek_objek_belanja: item.kode_rek_objek_belanja || item.kode || '',
+                        nama_objek_belanja: item.nama_objek_belanja || item.objek || ''
+                    }));
+                    this.db.sppd = this.db.sppd.map((item, index) => ({
+                        ...item,
+                        nomorSpt: item.nomorSpt || item.nomor || this.generateNomorSurat('spt', item.tglBerangkat, index + 1),
+                        nomorSpd: item.nomorSpd || item.nomor || this.generateNomorSurat('spd', item.tglBerangkat, index + 1),
+                        rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
+                        rekeningSubKegiatanKey: item.rekeningSubKegiatanKey || this.getRekeningKeysById(item.rekeningId).subKegiatanKey,
+                        pengikut: Array.isArray(item.pengikut) ? item.pengikut : []
+                    }));
+                },
+                rekeningKey(kode, nama) {
+                    return `${kode || ''}||${nama || ''}`;
+                },
+                uniqueRekeningOptions(rows, kodeField, namaField) {
+                    const map = new Map();
+                    rows.forEach(row => {
+                        const key = this.rekeningKey(row[kodeField], row[namaField]);
+                        if (!map.has(key) && (row[kodeField] || row[namaField])) map.set(key, { key, kode: row[kodeField], nama: row[namaField] });
+                    });
+                    return Array.from(map.values());
+                },
+                getRekeningKeysById(id) {
+                    const rek = this.db.rekening.find(r => String(r.id) === String(id));
+                    return rek ? { kegiatanKey: this.rekeningKey(rek.kode_rek_kegiatan, rek.nama_kegiatan), subKegiatanKey: this.rekeningKey(rek.kode_rek_sub_kegiatan, rek.nama_sub_Kegiatan) } : { kegiatanKey: '', subKegiatanKey: '' };
+                },
+                onKegiatanChange() {
+                    this.formSppd.rekeningSubKegiatanKey = '';
+                    this.formSppd.rekeningId = '';
+                },
+                onSubKegiatanChange() {
+                    this.formSppd.rekeningId = '';
+                },
+                onObjekBelanjaChange() {},
+                getRekeningLabel(rekening) {
+                    if (!rekening) return '-';
+                    return `${rekening.kode_rek_kegiatan || ''} ${rekening.nama_kegiatan || ''}
+${rekening.kode_rek_sub_kegiatan || ''} ${rekening.nama_sub_Kegiatan || ''}
+${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
+                },
+                getRekeningInfo(sppdData) {
+                    return this.db.rekening.find(r => String(r.id) === String(sppdData.rekeningId)) || null;
+                },
+                getRomanMonth(dateValue) {
+                    const romans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+                    const date = dateValue ? new Date(dateValue) : new Date();
+                    const month = Number.isNaN(date.getTime()) ? new Date().getMonth() : date.getMonth();
+                    return romans[month];
+                },
+                getYearFromDate(dateValue) {
+                    const date = dateValue ? new Date(dateValue) : new Date();
+                    return Number.isNaN(date.getTime()) ? new Date().getFullYear() : date.getFullYear();
+                },
+                getNextNomorUrut(dateValue) {
+                    const year = this.getYearFromDate(dateValue);
+                    return this.db.sppd.filter(item => this.getYearFromDate(item.tglBerangkat || item.createdAt) === year && item.id !== 'DUMMY').length + 1;
+                },
+                generateNomorSurat(type, dateValue, sequence = null) {
+                    const urut = String(sequence || this.getNextNomorUrut(dateValue)).padStart(3, '0');
+                    const romawi = this.getRomanMonth(dateValue);
+                    const tahun = this.getYearFromDate(dateValue);
+                    return type === 'spt' ? `400.7/${urut}/Tj-Puri/${romawi}/${tahun}` : `${urut}/SPD/PKM-TP/${romawi}/${tahun}`;
+                },
+                refreshNomorSurat() {
+                    const dateValue = this.formSppd.tglBerangkat || new Date().toISOString().slice(0, 10);
+                    const sequence = this.getNextNomorUrut(dateValue);
+                    this.formSppd.nomorSpt = this.generateNomorSurat('spt', dateValue, sequence);
+                    this.formSppd.nomorSpd = this.generateNomorSurat('spd', dateValue, sequence);
+                    this.formSppd.nomor = this.formSppd.nomorSpt;
+                },
+                filterPegawai(query = '') {
+                    const q = (query || '').toLowerCase();
+                    if (!q) return this.db.pegawai;
+                    return this.db.pegawai.filter(peg => [peg.nip, peg.nama, peg.jabatan, peg.pangkat, peg.golongan].some(val => String(val || '').toLowerCase().includes(q)));
+                },
+                filteredPegawaiPengikut(query) {
+                    return this.filterPegawai(query);
+                },
+                getAbsensiInfo(pegawaiId) {
+                    const raw = this.absensiStatus[String(pegawaiId || '').trim()] || {};
+                    const status = String(raw.status || '').trim().toUpperCase();
+                    const blocked = ['IZIN', 'SAKIT', 'CUTI', 'ALPA'];
+                    if (!status) return { status: 'KOSONG', label: 'Belum ada kegiatan / belum absen', available: true, class: 'bg-gray-100 text-gray-700' };
+                    if (blocked.includes(status)) return { status, label: `Tidak bisa dipilih karena status absensi ${status}`, available: false, class: 'bg-red-100 text-red-700' };
+                    if (status === 'TL') return { status, label: raw.detailTl ? `Tugas Lapangan: ${raw.detailTl}` : 'Tugas Lapangan', available: true, class: 'bg-indigo-100 text-indigo-700' };
+                    return { status, label: status === 'HADIR' ? 'Hadir dan bisa ditugaskan' : `Status ${status} bisa digunakan`, available: true, class: 'bg-teal-100 text-teal-700' };
+                },
+                checkAbsensiPegawai(ids = []) {
+                    const cleanIds = [...new Set(ids.filter(Boolean).map(id => String(id).trim()))];
+                    if (!this.isGAS || cleanIds.length === 0) return;
+                    this.isCheckingAbsensi = true;
+                    google.script.run
+                        .withSuccessHandler((res) => {
+                            this.absensiStatus = { ...this.absensiStatus, ...(res || {}) };
+                            const blocked = cleanIds.filter(id => !this.getAbsensiInfo(id).available);
+                            if (blocked.length > 0) {
+                                blocked.forEach(id => {
+                                    if (String(this.formSppd.pegawaiUtama) === String(id)) {
+                                        this.formSppd.pegawaiUtama = '';
+                                        this.pegawaiSearchUtama = '';
+                                    }
+                                    this.formSppd.pengikut.forEach(p => {
+                                        if (String(p.pegawaiId) === String(id)) { p.pegawaiId = ''; p.search = ''; }
+                                    });
+                                });
+                                Swal.fire('Pegawai diblokir absensi', blocked.map(id => `${this.getPegawaiName(id)}: ${this.getAbsensiInfo(id).label}`).join('<br>'), 'warning');
+                            }
+                            this.isCheckingAbsensi = false;
+                        })
+                        .withFailureHandler((err) => {
+                            this.isCheckingAbsensi = false;
+                            Swal.fire('Cek Absensi Gagal', 'Tidak bisa membaca spreadsheet absensi: ' + err.message, 'warning');
+                        })
+                        .getAbsensiStatus(cleanIds);
+                },
+                selectPegawaiUtama(pegawai) {
+                    const info = this.getAbsensiInfo(pegawai.id);
+                    if (!info.available) { Swal.fire('Pegawai tidak bisa dipilih', `${pegawai.nama}: ${info.label}`, 'warning'); return; }
+                    this.formSppd.pegawaiUtama = pegawai.id;
+                    this.pegawaiSearchUtama = `${pegawai.nama} - ${pegawai.jabatan || ''}`;
+                    this.activePegawaiDropdown = null;
+                    this.checkAbsensiPegawai([pegawai.id]);
+                },
+                selectPengikut(index, pegawai) {
+                    const info = this.getAbsensiInfo(pegawai.id);
+                    if (!info.available) { Swal.fire('Pengikut tidak bisa dipilih', `${pegawai.nama}: ${info.label}`, 'warning'); return; }
+                    this.formSppd.pengikut[index].pegawaiId = pegawai.id;
+                    this.formSppd.pengikut[index].search = `${pegawai.nama} - ${pegawai.jabatan || ''}`;
+                    this.activePengikutIndex = null;
+                    this.checkAbsensiPegawai([pegawai.id]);
+                },
+                closePegawaiDropdown() {
+                    setTimeout(() => { this.activePegawaiDropdown = null; this.activePengikutIndex = null; }, 150);
+                },
                 // CRUD Modals
                 openModal(type) {
                     this.modal = { isOpen: true, type: type, mode: 'add', editId: null };
-                    this.modalForm = {};
+                    this.modalForm = type === 'pegawai' ? { pangkat: '', golongan: '', jabatan: '' } : (type === 'rekening' ? { sumberDana: 'BOK' } : {});
                 },
                 closeModal() {
                     this.modal.isOpen = false;
@@ -756,7 +1089,7 @@
                 saveModalData() {
                     const data = { ...this.modalForm };
                     if(this.modal.mode === 'add') {
-                        data.id = Date.now().toString(); // unique ID
+                        if (!data.id) data.id = Date.now().toString(); // unique ID
                         this.db[this.modal.type].push(data);
                         Swal.fire('Tersimpan!', 'Data berhasil ditambahkan.', 'success');
                     } else {
@@ -787,7 +1120,7 @@
 
                 // SPPD Specific Logic
                 addPengikut() {
-                    this.formSppd.pengikut.push({ pegawaiId: '', keterangan: '' });
+                    this.formSppd.pengikut.push({ pegawaiId: '', keterangan: '', search: '' });
                 },
                 removePengikut(index) {
                     this.formSppd.pengikut.splice(index, 1);
@@ -799,24 +1132,49 @@
                         const diffTime = Math.abs(end - start);
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Termasuk hari H
                         this.formSppd.lamaHari = diffDays > 0 ? diffDays : 0;
+                        this.refreshNomorSurat();
                     }
                 },
                 resetFormSppd() {
-                    this.formSppd = { nomor: '', rekeningId: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.pegawaiSearchUtama = '';
+                    this.refreshNomorSurat();
                 },
                 saveSPPD() {
+                    if(!this.formSppd.pegawaiUtama) {
+                        Swal.fire('Pegawai belum dipilih', 'Ketik nama lalu klik salah satu hasil pencarian pegawai utama.', 'warning'); return;
+                    }
+                    if(this.formSppd.pengikut.some(p => !p.pegawaiId)) {
+                        Swal.fire('Pengikut belum lengkap', 'Setiap pengikut harus dipilih dari hasil pencarian.', 'warning'); return;
+                    }
+                    if(this.isCheckingAbsensi) {
+                        Swal.fire('Mohon tunggu', 'Sistem masih mengecek status absensi pegawai.', 'info'); return;
+                    }
+                    const selectedPegawaiIds = [this.formSppd.pegawaiUtama, ...this.formSppd.pengikut.map(p => p.pegawaiId)];
+                    const blockedPegawai = selectedPegawaiIds.map(id => ({ id, nama: this.getPegawaiName(id), info: this.getAbsensiInfo(id) })).filter(item => !item.info.available);
+                    if(blockedPegawai.length > 0) {
+                        Swal.fire('Pegawai tidak bisa berangkat', blockedPegawai.map(item => `${item.nama}: ${item.info.label}`).join('<br>'), 'warning'); return;
+                    }
+                    if(!this.formSppd.rekeningId) {
+                        Swal.fire('Rekening belum lengkap', 'Pilih kegiatan, sub kegiatan, dan objek belanja secara berurutan.', 'warning'); return;
+                    }
                     if(this.formSppd.lamaHari <= 0) {
                         Swal.fire('Error', 'Tanggal kembali harus setelah atau sama dengan tanggal berangkat', 'error'); return;
                     }
-                    const newSppd = { ...this.formSppd, id: Date.now().toString(), createdAt: new Date().toISOString() };
+                    this.refreshNomorSurat();
+                    const newSppd = { ...this.formSppd, pengikut: this.formSppd.pengikut.map(({ search, ...rest }) => rest), id: Date.now().toString(), createdAt: new Date().toISOString() };
                     this.db.sppd.push(newSppd);
                     this.saveDB();
                     Swal.fire('Berhasil', 'Data SPPD tersimpan. Silahkan klik Cetak Dokumen.', 'success');
                     this.resetFormSppd();
                 },
                 getPegawaiName(id) {
-                    const p = this.db.pegawai.find(x => x.id === id);
+                    const p = this.db.pegawai.find(x => String(x.id) === String(id));
                     return p ? p.nama : '-';
+                },
+                getLokasiName(id) {
+                    const lokasi = this.db.lokasi.find(x => String(x.id) === String(id));
+                    return lokasi ? lokasi.tujuan : '-';
                 },
                 openLaporan(item) {
                     this.modalLaporan.sppdId = item.id;
@@ -839,7 +1197,7 @@
                 },
                 exportExcelSPPD() {
                     let csvContent = "data:text/csv;charset=utf-8,";
-                    csvContent += "No SPPD,Pegawai Utama,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
+                    csvContent += "No SPT,No SPD,Pegawai Utama,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
                     
                     this.db.sppd.forEach(row => {
                         const utama = this.getPegawaiName(row.pegawaiUtama);
@@ -847,7 +1205,7 @@
                         const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
                         const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
                         
-                        let rowData = `"${row.nomor}","${utama}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
+                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${utama}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
                         csvContent += rowData + "\n";
                     });
                     
@@ -876,7 +1234,7 @@
                             this.isSyncing = true;
                             // Inject dummy data structure minimally if entirely empty so headers generate
                             if (this.db.sppd.length === 0) {
-                                this.db.sppd.push({id: 'DUMMY', nomor: '-', rekeningId: '-', maksud: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
+                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', maksud: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
                             }
                             
                             google.script.run
@@ -955,7 +1313,7 @@
                         
                         const utama = this.db.pegawai.find(p => p.id === sppdData.pegawaiUtama);
                         const lokasi = this.db.lokasi.find(l => l.id === sppdData.lokasiId);
-                        const rekening = this.db.rekening.find(r => r.id === sppdData.rekeningId);
+                        const rekening = this.getRekeningInfo(sppdData);
                         
                         const drawKopSurat = () => {
                             let currentY = y;
@@ -1000,7 +1358,7 @@
                         doc.text("SURAT PERINTAH TUGAS", centerX, y, { align: 'center' });
                         doc.line(centerX - 30, y+1, centerX + 30, y+1);
                         doc.setFont("times", "normal");
-                        doc.text(`Nomor: ${sppdData.nomor}`, centerX, y+6, { align: 'center' });
+                        doc.text(`Nomor: ${sppdData.nomorSpt || sppdData.nomor}`, centerX, y+6, { align: 'center' });
                         y += 15;
 
                         doc.setFontSize(11);
@@ -1046,7 +1404,9 @@
                         doc.addPage(); y = margin; drawKopSurat();
                         doc.setFont("times", "bold");
                         doc.text("SURAT PERJALANAN DINAS (SPD)", centerX, y, { align: 'center' });
-                        doc.setFont("times", "normal"); y += 10;
+                        doc.setFont("times", "normal");
+                        doc.text(`Nomor: ${sppdData.nomorSpd || sppdData.nomor}`, centerX, y+6, { align: 'center' });
+                        y += 14;
 
                         const spdBody = [
                             ["1", "Pejabat berwenang yang memberi perintah", "Kepala UPTD Puskesmas Tanjung Puri"],
@@ -1056,7 +1416,7 @@
                             ["5", "Alat angkutan yang dipergunakan", "Kendaraan Umum / Dinas"],
                             ["6", "a. Tempat berangkat\nb. Tempat tujuan", `Puskesmas Tanjung Puri\n${lokasi?lokasi.tujuan:''}`],
                             ["7", "a. Lama perjalanan dinas\nb. Tanggal berangkat\nc. Tanggal kembali", `${sppdData.lamaHari} Hari\n${sppdData.tglBerangkat}\n${sppdData.tglKembali}`],
-                            ["8", "Pembebanan Anggaran\na. Instansi\nb. Rekening", `Puskesmas Tanjung Puri\n${rekening?rekening.kegiatan:''}`]
+                            ["8", "Pembebanan Anggaran\na. Instansi\nb. Rekening", `Puskesmas Tanjung Puri\n${this.getRekeningLabel(rekening)}`]
                         ];
 
                         doc.autoTable({
