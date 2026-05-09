@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>e-SPPD | UPTD Puskesmas Tanjung Puri</title>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .slide-enter-active { transition: all 0.4s ease-out; }
+        .slide-enter-from { transform: translateY(20px); opacity: 0; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #0d9488; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0f766e; }
+        /* Loading Overlay Overlay Gas */
+        .gas-loading { position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak class="h-screen w-full flex flex-col md:flex-row overflow-hidden bg-gray-50 relative">
+        
+        <!-- Loading Indicator untuk Sinkronisasi GAS -->
+        <div v-if="isSyncing" class="gas-loading">
+            <i class="fas fa-circle-notch fa-spin text-teal-600 text-5xl mb-4"></i>
+            <h2 class="text-xl font-bold text-gray-700">Sinkronisasi Database...</h2>
+            <p class="text-sm text-gray-500">Menghubungkan ke Google Sheets</p>
+        </div>
+
+        <!-- ================= LOGIN SCREEN ================= -->
+        <transition name="fade">
+            <div v-if="currentView === 'login'" class="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-teal-600 to-emerald-900 px-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 transform transition-all animate-[pulse_0.5s_ease-out]">
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-50 text-teal-600 mb-4 shadow-sm border border-teal-100 p-2">
+                            <img v-if="settings.appLogo" :src="settings.appLogo" class="w-full h-full object-contain" alt="Logo Aplikasi">
+                            <i v-else class="fas fa-hospital-user text-4xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800">e-SPPD Puskesmas</h2>
+                        <p class="text-sm text-gray-500 mt-1">UPTD Puskesmas Tanjung Puri</p>
+                    </div>
+                    <form @submit.prevent="handleLogin" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input v-model="loginForm.username" type="text" required class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="grandadmin / admin">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input v-model="loginForm.password" :type="showPassword ? 'text' : 'password'" required class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="Masukkan password">
+                                <button type="button" @click="showPassword = !showPassword" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-teal-600 focus:outline-none">
+                                    <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 flex justify-center items-center">
+                            <i class="fas fa-sign-in-alt mr-2"></i> Masuk
+                        </button>
+                    </form>
+                    <div class="mt-6 text-center text-xs text-gray-400">
+                        *Demo info: grandadmin/123 atau admin/123
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- ================= MAIN DASHBOARD ================= -->
+        <template v-if="currentView !== 'login'">
+            <!-- Mobile Header & Toggle -->
+            <div class="md:hidden bg-teal-700 text-white p-4 flex justify-between items-center shadow-md z-20 relative">
+                <div class="font-bold text-lg flex items-center"><i class="fas fa-hospital-user mr-2"></i> e-SPPD</div>
+                <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-white focus:outline-none text-2xl">
+                    <i :class="mobileMenuOpen ? 'fas fa-times' : 'fas fa-bars'"></i>
+                </button>
+            </div>
+
+            <!-- Sidebar -->
+            <div :class="['w-64 bg-white border-r shadow-sm flex-shrink-0 flex flex-col transition-transform duration-300 z-10 absolute md:relative h-full', mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0']">
+                <div class="p-5 border-b hidden md:block text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-50 text-teal-600 mb-2 p-1 border border-teal-100">
+                        <img v-if="settings.appLogo" :src="settings.appLogo" class="w-full h-full object-contain" alt="Logo">
+                        <i v-else class="fas fa-hospital-user text-2xl"></i>
+                    </div>
+                    <h2 class="text-lg font-bold text-gray-800">e-SPPD</h2>
+                    <p class="text-xs text-gray-500">Puskesmas Tanjung Puri</p>
+                </div>
+                
+                <div class="p-4 bg-teal-50 border-b flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold">
+                        {{ currentUser.role === 'grandadmin' ? 'GA' : 'A' }}
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">{{ currentUser.username }}</p>
+                        <p class="text-xs text-teal-600 capitalize">{{ currentUser.role }}</p>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto py-4">
+                    <nav class="space-y-1 px-3">
+                        <a v-for="menu in menus" :key="menu.id" href="#" @click.prevent="changeView(menu.id)" 
+                           :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors', currentView === menu.id ? 'bg-teal-600 text-white shadow-md' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700']">
+                            <i :class="[menu.icon, 'w-6 text-center mr-2', currentView === menu.id ? 'text-white' : 'text-gray-400']"></i>
+                            {{ menu.name }}
+                        </a>
+                    </nav>
+                </div>
+                <div class="p-4 border-t">
+                    <button @click="handleLogout" class="w-full flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                        <i class="fas fa-sign-out-alt w-6 text-center mr-2"></i> Keluar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 relative">
+                <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center hidden md:flex">
+                    <h1 class="text-xl font-bold text-gray-800 capitalize">{{ getMenuName(currentView) }}</h1>
+                    <div class="text-sm text-gray-500">
+                        {{ currentDateTime }}
+                    </div>
+                </header>
+
+                <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6">
+                    <transition name="slide" mode="out-in">
+                        
+                        <!-- VIEW: DASHBOARD -->
+                        <div v-if="currentView === 'dashboard'" key="dashboard" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-teal-500 hover:shadow-md transition-shadow">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-teal-100 text-teal-600"><i class="fas fa-users text-2xl"></i></div>
+                                        <div class="ml-4">
+                                            <p class="mb-2 text-sm font-medium text-gray-600">Total Pegawai</p>
+                                            <p class="text-3xl font-bold text-gray-800">{{ db.pegawai.length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i class="fas fa-paper-plane text-2xl"></i></div>
+                                        <div class="ml-4">
+                                            <p class="mb-2 text-sm font-medium text-gray-600">Total SPPD</p>
+                                            <p class="text-3xl font-bold text-gray-800">{{ db.sppd.length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-orange-100 text-orange-600"><i class="fas fa-wallet text-2xl"></i></div>
+                                        <div class="ml-4">
+                                            <p class="mb-2 text-sm font-medium text-gray-600">Total Rekening Kegiatan</p>
+                                            <p class="text-3xl font-bold text-gray-800">{{ db.rekening.length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                    <h3 class="text-lg font-semibold text-gray-800">SPPD Terbaru</h3>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left text-gray-500">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3">No SPPD</th>
+                                                <th class="px-6 py-3">Pegawai Utama</th>
+                                                <th class="px-6 py-3">Tujuan</th>
+                                                <th class="px-6 py-3">Tanggal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, index) in db.sppd.slice(-5).reverse()" :key="item.id" class="border-b hover:bg-gray-50">
+                                                <td class="px-6 py-4 font-medium text-gray-900">{{ item.nomor }}</td>
+                                                <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}</td>
+                                                <td class="px-6 py-4">{{ item.tujuan }}</td>
+                                                <td class="px-6 py-4">{{ item.tglBerangkat }} s/d {{ item.tglKembali }}</td>
+                                            </tr>
+                                            <tr v-if="db.sppd.length === 0">
+                                                <td colspan="4" class="px-6 py-8 text-center text-gray-500">Belum ada data perjalanan dinas.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW: MASTER DATA (Generic Template used for Pegawai, Rekening, SHS, Lokasi) -->
+                        <div v-else-if="['pegawai', 'rekening', 'shs', 'lokasi'].includes(currentView)" :key="currentView" class="space-y-4">
+                            <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                <div class="relative w-full md:w-64">
+                                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <i class="fas fa-search text-gray-400"></i>
+                                    </div>
+                                    <input type="text" v-model="searchQuery" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 block w-full pl-10 p-2.5" placeholder="Cari data...">
+                                </div>
+                                <button @click="openModal(currentView)" class="bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none transition-colors">
+                                    <i class="fas fa-plus mr-2"></i> Tambah Data
+                                </button>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left text-gray-500">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                                            <tr v-if="currentView === 'pegawai'">
+                                                <th class="px-6 py-3">NIP</th><th class="px-6 py-3">Nama Lengkap</th><th class="px-6 py-3">Pangkat/Gol</th><th class="px-6 py-3">Jabatan</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
+                                            <tr v-else-if="currentView === 'rekening'">
+                                                <th class="px-6 py-3">Kode Rek.</th><th class="px-6 py-3">Program/Kegiatan</th><th class="px-6 py-3">Objek Belanja</th><th class="px-6 py-3">Sumber Dana</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
+                                            <tr v-else-if="currentView === 'shs'">
+                                                <th class="px-6 py-3">Golongan / Kriteria</th><th class="px-6 py-3">Uang Harian</th><th class="px-6 py-3">Penginapan</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
+                                            <tr v-else-if="currentView === 'lokasi'">
+                                                <th class="px-6 py-3">Tujuan</th><th class="px-6 py-3">Jarak (KM)</th><th class="px-6 py-3">Est. Transport</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, index) in filteredData" :key="item.id" class="border-b hover:bg-gray-50">
+                                                <!-- Dynamic Columns based on View -->
+                                                <template v-if="currentView === 'pegawai'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.nip }}</td><td class="px-6 py-4">{{ item.nama }}</td><td class="px-6 py-4">{{ item.pangkat }} / {{ item.golongan }}</td><td class="px-6 py-4">{{ item.jabatan }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'rekening'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.kode }}</td><td class="px-6 py-4">{{ item.kegiatan }}<br><span class="text-xs text-gray-400">Sub: {{ item.subKegiatan }}</span></td><td class="px-6 py-4">{{ item.objek }}</td><td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ item.sumberDana }}</span></td>
+                                                </template>
+                                                <template v-else-if="currentView === 'shs'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.kriteria }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.uangHarian) }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.penginapan) }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'lokasi'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tujuan }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                </template>
+                                                
+                                                <!-- Action Buttons -->
+                                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                                    <button @click="editData(item, currentView)" class="text-blue-600 hover:text-blue-900 mr-3 p-1"><i class="fas fa-edit"></i></button>
+                                                    <button @click="deleteData(item.id, currentView)" class="text-red-600 hover:text-red-900 p-1"><i class="fas fa-trash-alt"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr v-if="filteredData.length === 0">
+                                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">Data tidak ditemukan atau masih kosong.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW: TRANSAKSI SPPD -->
+                        <div v-else-if="currentView === 'sppd'" key="sppd" class="space-y-6">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h2 class="text-xl font-bold text-gray-800">Buat SPPD Baru</h2>
+                                </div>
+                                
+                                <form @submit.prevent="saveSPPD" class="space-y-6">
+                                    <!-- Section 1: Info Utama -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Nomor Surat (SPT/SPD)</label>
+                                            <input type="text" v-model="formSppd.nomor" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500" placeholder="094/.../PKM-TP/2026">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Beban Rekening / Kegiatan</label>
+                                            <select v-model="formSppd.rekeningId" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                                <option value="" disabled>Pilih Rekening Beban</option>
+                                                <option v-for="rek in db.rekening" :value="rek.id">{{ rek.kode }} - {{ rek.kegiatan }} ({{ rek.sumberDana }})</option>
+                                            </select>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Maksud Perjalanan Dinas</label>
+                                            <textarea v-model="formSppd.maksud" required rows="2" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500" placeholder="Menghadiri rapat koordinasi..."></textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- Section 2: Waktu & Lokasi -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white border border-gray-100 p-4 rounded-lg">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tempat Tujuan</label>
+                                            <select v-model="formSppd.lokasiId" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                                <option value="" disabled>Pilih Tujuan</option>
+                                                <option v-for="lok in db.lokasi" :value="lok.id">{{ lok.tujuan }}</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Berangkat</label>
+                                            <input type="date" v-model="formSppd.tglBerangkat" required @change="calculateDays" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Kembali</label>
+                                            <input type="date" v-model="formSppd.tglKembali" required @change="calculateDays" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                        </div>
+                                        <div class="md:col-span-3 text-sm text-teal-700 font-medium bg-teal-50 p-2 rounded inline-block w-max">
+                                            Lama Perjalanan: {{ formSppd.lamaHari }} Hari
+                                        </div>
+                                    </div>
+
+                                    <!-- Section 3: Pegawai -->
+                                    <div class="bg-white border border-teal-200 p-4 rounded-lg">
+                                        <h3 class="font-semibold text-teal-800 mb-4 border-b pb-2">Daftar Pelaksana (Pegawai)</h3>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Pegawai Utama</label>
+                                            <select v-model="formSppd.pegawaiUtama" required class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                                <option value="" disabled>Pilih Pegawai Utama</option>
+                                                <option v-for="peg in db.pegawai" :value="peg.id">{{ peg.nip }} - {{ peg.nama }} ({{peg.jabatan}})</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <div class="flex justify-between items-center mb-2">
+                                                <label class="block text-sm font-medium text-gray-700">Pegawai Pengikut (Opsional)</label>
+                                                <button type="button" @click="addPengikut" class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-gray-800 transition"><i class="fas fa-plus"></i> Tambah Pengikut</button>
+                                            </div>
+                                            <div v-for="(png, index) in formSppd.pengikut" :key="index" class="flex gap-2 mb-2 items-center slide-enter-active">
+                                                <span class="text-sm font-bold text-gray-400 w-6">{{ index + 1 }}.</span>
+                                                <select v-model="png.pegawaiId" required class="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-teal-500">
+                                                    <option value="" disabled>Pilih Pengikut</option>
+                                                    <option v-for="peg in db.pegawai" :value="peg.id">{{ peg.nama }}</option>
+                                                </select>
+                                                <input type="text" v-model="png.keterangan" placeholder="Keterangan (opsional)" class="flex-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                                <button type="button" @click="removePengikut(index)" class="text-red-500 hover:bg-red-50 p-2 rounded-lg"><i class="fas fa-times"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex justify-end gap-3 pt-4 border-t">
+                                        <button type="button" @click="resetFormSppd" class="px-5 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
+                                        <button type="submit" class="px-5 py-2.5 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 shadow-md transition-colors">
+                                            <i class="fas fa-save mr-2"></i> Simpan & Lanjut Cetak
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- List SPPD untuk Cetak -->
+                            <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 mt-6">
+                                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center flex-wrap gap-2">
+                                    <h3 class="text-lg font-semibold text-gray-800">Riwayat & Cetak Dokumen</h3>
+                                    <button @click="exportExcelSPPD" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow transition">
+                                        <i class="fas fa-file-excel mr-2"></i> Export Excel (CSV)
+                                    </button>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left text-gray-500">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3">No</th><th class="px-6 py-3">Utama</th><th class="px-6 py-3">Maksud</th><th class="px-6 py-3">Tanggal</th><th class="px-6 py-3 text-center">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, index) in db.sppd" :key="item.id" class="border-b hover:bg-gray-50">
+                                                <td class="px-6 py-4 font-medium">{{ item.nomor }}</td>
+                                                <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}<br><span v-if="item.pengikut.length" class="text-xs text-teal-600">+{{item.pengikut.length}} Pengikut</span></td>
+                                                <td class="px-6 py-4 truncate max-w-xs" :title="item.maksud">{{ item.maksud }}</td>
+                                                <td class="px-6 py-4">{{ item.tglBerangkat }}</td>
+                                                <td class="px-6 py-4 text-center">
+                                                    <div class="flex flex-col gap-2">
+                                                        <button @click="openLaporan(item)" :class="item.laporanHasil ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'" class="text-white text-xs font-bold px-3 py-2 rounded shadow transition-transform transform hover:scale-105">
+                                                            <i class="fas fa-edit mr-1"></i> {{ item.laporanHasil ? 'EDIT LAPORAN' : 'ISI LAPORAN' }}
+                                                        </button>
+                                                        <button @click="generatePDF(item)" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded shadow transition-transform transform hover:scale-105">
+                                                            <i class="fas fa-file-pdf mr-1"></i> CETAK DOKUMEN
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW: PENGATURAN -->
+                        <div v-else-if="currentView === 'setting'" key="setting" class="space-y-6">
+                            <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fas fa-cog mr-2 text-teal-600"></i> Pengaturan Dokumen</h2>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Ukuran Kertas Default</label>
+                                        <select v-model="settings.paperSize" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                            <option value="f4">F4 (Folio / 215.9 x 330.2 mm)</option>
+                                            <option value="legal">Legal (215.9 x 355.6 mm)</option>
+                                            <option value="a4">A4 (210 x 297 mm)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Margin Atas (mm)</label>
+                                        <input type="number" v-model="settings.marginTop" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Penandatangan (Kepala UPTD)</label>
+                                        <input type="text" v-model="settings.kepalaNama" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="Nama Kepala">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">NIP Kepala UPTD</label>
+                                        <input type="text" v-model="settings.kepalaNip" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="NIP Kepala">
+                                    </div>
+                                </div>
+
+                                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 mt-8"><i class="fas fa-envelope-open-text mr-2 text-teal-600"></i> Pengaturan Kop Surat & Logo</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="md:col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Logo Instansi</label>
+                                        <div class="flex items-center space-x-4">
+                                            <img v-if="settings.kopLogo" :src="settings.kopLogo" class="h-20 w-20 object-contain bg-white border p-1 rounded-lg shadow-sm">
+                                            <div v-else class="h-20 w-20 bg-white border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 text-xs">
+                                                <i class="fas fa-image text-2xl mb-1"></i>
+                                                <span>No Logo</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <input type="file" @change="handleLogoUpload" accept="image/png, image/jpeg" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition">
+                                                <p class="text-xs text-gray-500 mt-1">Gunakan gambar berformat PNG/JPG transparan. Maks. ukuran 500KB.</p>
+                                                <button type="button" v-if="settings.kopLogo" @click="settings.kopLogo = null" class="text-xs text-red-600 hover:text-red-800 mt-2 font-medium"><i class="fas fa-trash-alt mr-1"></i>Hapus Logo</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Instansi Induk (Baris 1)</label>
+                                        <input type="text" v-model="settings.kopInstansi" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 font-bold" placeholder="PEMERINTAH KABUPATEN SINTANG">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Dinas / Badan (Baris 2)</label>
+                                        <input type="text" v-model="settings.kopDinas" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 font-bold" placeholder="DINAS KESEHATAN">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama UPTD / Unit (Baris 3)</label>
+                                        <input type="text" v-model="settings.kopUptd" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500 font-bold" placeholder="UPTD PUSKESMAS TANJUNG PURI">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Alamat Lengkap (Baris 4)</label>
+                                        <textarea v-model="settings.kopAlamat" rows="2" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-teal-500" placeholder="Jalan Lintas Melawi..."></textarea>
+                                    </div>
+                                </div>
+
+                                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 mt-8"><i class="fas fa-desktop mr-2 text-teal-600"></i> Pengaturan Tampilan Aplikasi</h3>
+                                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Logo Aplikasi (Halaman Login & Sidebar)</label>
+                                    <div class="flex items-center space-x-4">
+                                        <img v-if="settings.appLogo" :src="settings.appLogo" class="h-20 w-20 object-contain bg-white border p-1 rounded-lg shadow-sm">
+                                        <div v-else class="h-20 w-20 bg-white border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 text-xs">
+                                            <i class="fas fa-hospital-user text-2xl mb-1"></i>
+                                            <span>Default</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <input type="file" @change="handleAppLogoUpload" accept="image/png, image/jpeg" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 transition">
+                                            <p class="text-xs text-gray-500 mt-1">Gunakan gambar berformat PNG/JPG transparan. Maks. ukuran 500KB.</p>
+                                            <button type="button" v-if="settings.appLogo" @click="settings.appLogo = null" class="text-xs text-red-600 hover:text-red-800 mt-2 font-medium"><i class="fas fa-trash-alt mr-1"></i>Gunakan Logo Default</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 mt-8"><i class="fas fa-database mr-2 text-teal-600"></i> Setup Google Sheets (Database)</h3>
+                                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div>
+                                        <h4 class="font-bold text-blue-800">Generate & Sinkronkan Sheet Otomatis</h4>
+                                        <p class="text-sm text-blue-600">Buat otomatis tabel (Pegawai, Rekening, SPPD, dll) di file Google Sheets Anda.</p>
+                                    </div>
+                                    <button @click="generateGoogleSheets" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg shadow-md transition-all flex items-center shrink-0">
+                                        <i class="fas fa-cloud-upload-alt mr-2"></i> Generate Sheets
+                                    </button>
+                                </div>
+
+                                <div class="mt-6 flex justify-end pt-4 border-t">
+                                    <button @click="saveSettings" class="bg-teal-600 text-white px-6 py-2.5 rounded-lg hover:bg-teal-700 shadow-md font-medium transition"><i class="fas fa-save mr-2"></i>Simpan Semua Pengaturan</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </transition>
+                </main>
+                
+                <!-- Professional Footer -->
+                <footer class="bg-white border-t border-gray-200 px-6 py-3 flex flex-col md:flex-row items-center justify-between text-xs text-gray-500 z-10 relative">
+                    <div class="mb-2 md:mb-0 text-center md:text-left">
+                        <strong>&copy; {{ new Date().getFullYear() }} {{ settings.kopInstansi || 'Pemerintah Kabupaten Sintang' }}</strong>. Seluruh Hak Cipta Dilindungi.
+                    </div>
+                    <div class="text-center md:text-right font-medium">
+                        {{ settings.kopDinas || 'Dinas Kesehatan' }} &bull; {{ settings.kopUptd || 'UPTD Puskesmas Tanjung Puri' }}
+                    </div>
+                </footer>
+
+            </div>
+        </template>
+
+        <!-- ================= UNIVERSAL MODAL (CRUD Master) ================= -->
+        <div v-if="modal.isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 class="text-lg font-bold text-gray-800 capitalize">{{ modal.mode === 'add' ? 'Tambah' : 'Edit' }} {{ modal.type }}</h3>
+                    <button @click="closeModal" class="text-gray-400 hover:text-red-500 focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="p-6">
+                    <form @submit.prevent="saveModalData" class="space-y-4">
+                        <!-- Dynamic Fields based on Type -->
+                        <template v-if="modal.type === 'pegawai'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">NIP</label><input v-model="modalForm.nip" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label><input v-model="modalForm.nama" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Pangkat</label><input v-model="modalForm.pangkat" required type="text" placeholder="Penata Muda" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Golongan</label><input v-model="modalForm.golongan" required type="text" placeholder="III/a" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            </div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label><input v-model="modalForm.jabatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                        </template>
+
+                        <template v-else-if="modal.type === 'rekening'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening</label><input v-model="modalForm.kode" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Program / Kegiatan</label><input v-model="modalForm.kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Sub Kegiatan</label><input v-model="modalForm.subKegiatan" type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Objek Belanja</label><input v-model="modalForm.objek" required type="text" placeholder="Belanja Perjalanan Dinas Dalam Kota" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Sumber Dana</label>
+                                <select v-model="modalForm.sumberDana" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                    <option value="BOK">BOK (Bantuan Operasional Kesehatan)</option>
+                                    <option value="JKN">JKN (Jaminan Kesehatan Nasional)</option>
+                                    <option value="DAU">DAU (Dana Alokasi Umum)</option>
+                                    <option value="BLUD">BLUD</option>
+                                </select>
+                            </div>
+                        </template>
+
+                        <template v-else-if="modal.type === 'shs'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Kriteria / Golongan</label><input v-model="modalForm.kriteria" required type="text" placeholder="Golongan III" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Uang Harian (Rp)</label><input v-model.number="modalForm.uangHarian" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Biaya Penginapan (Rp)</label><input v-model.number="modalForm.penginapan" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                        </template>
+
+                        <template v-else-if="modal.type === 'lokasi'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Lokasi Tujuan</label><input v-model="modalForm.tujuan" required type="text" placeholder="Dinas Kesehatan Kab. Sintang" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Jarak (KM)</label><input v-model.number="modalForm.jarak" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Est. Transport / Tiket (Rp)</label><input v-model.number="modalForm.transport" required type="number" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                        </template>
+
+                        <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                            <button type="button" @click="closeModal" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Batal</button>
+                            <button type="submit" class="px-4 py-2 text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow transition-colors">Simpan Data</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- End Modal -->
+
+        <!-- Modal Laporan -->
+        <div v-if="modalLaporan.isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all scale-100">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 class="text-lg font-bold text-gray-800">Input Laporan Hasil Perjalanan Dinas</h3>
+                    <button @click="closeLaporan" class="text-gray-400 hover:text-red-500 focus:outline-none"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="p-6">
+                    <form @submit.prevent="saveLaporan" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Uraian Hasil Perjalanan Dinas</label>
+                            <textarea v-model="modalLaporan.hasil" required rows="8" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500" placeholder="Tuliskan hasil kegiatan, temuan, hambatan, dan rencana tindak lanjut..."></textarea>
+                        </div>
+                        <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+                            <button type="button" @click="closeLaporan" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Batal</button>
+                            <button type="submit" class="px-4 py-2 text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow transition-colors"><i class="fas fa-save mr-2"></i> Simpan Laporan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- End Modal Laporan -->
+
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentView: 'login',
+                    mobileMenuOpen: false,
+                    showPassword: false,
+                    searchQuery: '',
+                    loginForm: { username: '', password: '' },
+                    currentUser: null,
+                    isSyncing: false,
+                    isGAS: false, // Flag untuk mendeteksi apakah jalan di dalam App Script
+                    menus: [
+                        { id: 'dashboard', name: 'Dashboard', icon: 'fas fa-home' },
+                        { id: 'sppd', name: 'Transaksi SPPD', icon: 'fas fa-file-signature' },
+                        { id: 'pegawai', name: 'Master Pegawai', icon: 'fas fa-users' },
+                        { id: 'rekening', name: 'Master Rekening', icon: 'fas fa-wallet' },
+                        { id: 'shs', name: 'Master SHS', icon: 'fas fa-money-bill-wave' },
+                        { id: 'lokasi', name: 'Master Lokasi', icon: 'fas fa-map-marker-alt' },
+                        { id: 'setting', name: 'Pengaturan', icon: 'fas fa-cogs' }
+                    ],
+                    db: {
+                        pegawai: [], rekening: [], shs: [], lokasi: [], sppd: []
+                    },
+                    modal: { isOpen: false, type: '', mode: 'add', editId: null },
+                    modalForm: {},
+                    modalLaporan: { isOpen: false, sppdId: null, hasil: '' },
+                    formSppd: {
+                        nomor: '', rekeningId: '', maksud: '', lokasiId: '', 
+                        tglBerangkat: '', tglKembali: '', lamaHari: 0,
+                        pegawaiUtama: '', pengikut: []
+                    },
+                    settings: {
+                        paperSize: 'f4', marginTop: 15,
+                        kepalaNama: 'dr. H. Abdul Fatah, MPH', kepalaNip: '19750817 200501 1 004',
+                        kopInstansi: 'PEMERINTAH KABUPATEN SINTANG',
+                        kopDinas: 'DINAS KESEHATAN',
+                        kopUptd: 'UPTD PUSKESMAS TANJUNG PURI',
+                        kopAlamat: 'Jalan Lintas Melawi, Tanjung Puri, Kec. Sintang, Kabupaten Sintang',
+                        kopLogo: null,
+                        appLogo: null
+                    }
+                }
+            },
+            computed: {
+                currentDateTime() {
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    return new Date().toLocaleDateString('id-ID', options);
+                },
+                filteredData() {
+                    if(!this.searchQuery) return this.db[this.currentView];
+                    const q = this.searchQuery.toLowerCase();
+                    return this.db[this.currentView].filter(item => {
+                        return Object.values(item).some(val => String(val).toLowerCase().includes(q));
+                    });
+                }
+            },
+            mounted() {
+                // Deteksi jika kita berada di lingkungan Google Apps Script
+                this.isGAS = typeof google !== 'undefined' && google.script && google.script.run;
+                
+                if (this.isGAS) {
+                    // Jika di GAS, ambil data dari Spreadsheet
+                    this.isSyncing = true;
+                    google.script.run
+                        .withSuccessHandler((response) => {
+                            if (response.db && Object.keys(response.db).length > 0) {
+                                this.db = { ...this.db, ...response.db }; // Merge Data
+                            }
+                            if (response.settings && Object.keys(response.settings).length > 0) {
+                                this.settings = { ...this.settings, ...response.settings };
+                            }
+                            this.isSyncing = false;
+                        })
+                        .withFailureHandler((error) => {
+                            console.error(error);
+                            Swal.fire('Koneksi Gagal', 'Gagal memuat data dari Spreadsheet. Beralih ke penyimpanan lokal sementara.', 'warning');
+                            this.initLocalDB();
+                            this.isSyncing = false;
+                        })
+                        .loadAllData();
+                } else {
+                    // Jika jalan di komputer biasa (demo), pakai Local Storage
+                    this.initLocalDB();
+                }
+            },
+            methods: {
+                handleLogin() {
+                    const u = this.loginForm.username;
+                    const p = this.loginForm.password;
+                    // Hardcoded Auth for demonstration requirement (Grand Admin & Admin)
+                    if ((u === 'grandadmin' || u === 'admin') && p === '123') {
+                        this.currentUser = { username: u, role: u };
+                        this.currentView = 'dashboard';
+                        Swal.fire({
+                            icon: 'success', title: 'Login Berhasil',
+                            text: 'Selamat datang di Sistem SPPD',
+                            timer: 1500, showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Login Gagal', text: 'Username atau password salah!' });
+                    }
+                },
+                handleLogout() {
+                    this.currentUser = null;
+                    this.currentView = 'login';
+                    this.loginForm = {username: '', password: ''};
+                },
+                changeView(view) {
+                    this.currentView = view;
+                    this.mobileMenuOpen = false;
+                    this.searchQuery = '';
+                },
+                getMenuName(id) {
+                    const menu = this.menus.find(m => m.id === id);
+                    return menu ? menu.name : 'Aplikasi SPPD';
+                },
+                formatNumber(num) {
+                    return Number(num).toLocaleString('id-ID');
+                },
+                initLocalDB() {
+                    const localData = localStorage.getItem('sppd_db');
+                    if (localData) {
+                        this.db = JSON.parse(localData);
+                    } else {
+                        // Insert Default Dummy Data for first load to make app informative
+                        this.db.pegawai.push({id: Date.now().toString(), nip: '19800101 200501 1 001', nama: 'Budi Santoso, S.Kep', pangkat: 'Penata Muda', golongan: 'III/a', jabatan: 'Perawat Penyelia'});
+                        this.db.rekening.push({id: 'R1', kode: '1.02.01.2.01', kegiatan: 'Pelayanan Kesehatan Primer', subKegiatan: 'Kunjungan Lapangan', objek: 'Belanja Perjalanan Dinas Dalam Daerah', sumberDana: 'BOK'});
+                        this.db.shs.push({id: 'S1', kriteria: 'Golongan III', uangHarian: 150000, penginapan: 300000});
+                        this.db.lokasi.push({id: 'L1', tujuan: 'Dinas Kesehatan Kab. Sintang', jarak: 5, transport: 50000});
+                        localStorage.setItem('sppd_db', JSON.stringify(this.db));
+                    }
+                    
+                    const localSettings = localStorage.getItem('sppd_settings');
+                    if(localSettings) this.settings = JSON.parse(localSettings);
+                },
+                saveDB() {
+                    // Backup ke Local Storage selalu jalan
+                    localStorage.setItem('sppd_db', JSON.stringify(this.db));
+                    
+                    // Jika terkoneksi dengan GAS, lempar data ke Spreadsheet otomatis
+                    if (this.isGAS) {
+                        this.isSyncing = true;
+                        google.script.run
+                            .withSuccessHandler((res) => {
+                                this.isSyncing = false;
+                            })
+                            .withFailureHandler((err) => {
+                                this.isSyncing = false;
+                                Swal.fire('Gagal Menyimpan Server', 'Data tersimpan lokal, namun gagal terkirim ke Google Sheets: ' + err.message, 'error');
+                            })
+                            .saveDatabase(this.db, this.settings);
+                    }
+                },
+                
+                // CRUD Modals
+                openModal(type) {
+                    this.modal = { isOpen: true, type: type, mode: 'add', editId: null };
+                    this.modalForm = {};
+                },
+                closeModal() {
+                    this.modal.isOpen = false;
+                },
+                saveModalData() {
+                    const data = { ...this.modalForm };
+                    if(this.modal.mode === 'add') {
+                        data.id = Date.now().toString(); // unique ID
+                        this.db[this.modal.type].push(data);
+                        Swal.fire('Tersimpan!', 'Data berhasil ditambahkan.', 'success');
+                    } else {
+                        const index = this.db[this.modal.type].findIndex(item => item.id === this.modal.editId);
+                        if(index !== -1) this.db[this.modal.type][index] = { ...data, id: this.modal.editId };
+                        Swal.fire('Diperbarui!', 'Data berhasil diedit.', 'success');
+                    }
+                    this.saveDB();
+                    this.closeModal();
+                },
+                editData(item, type) {
+                    this.modalForm = { ...item };
+                    this.modal = { isOpen: true, type: type, mode: 'edit', editId: item.id };
+                },
+                deleteData(id, type) {
+                    Swal.fire({
+                        title: 'Hapus data?', text: "Data yang dihapus tidak dapat dikembalikan!",
+                        icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6', confirmButtonText: 'Ya, Hapus!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.db[type] = this.db[type].filter(item => item.id !== id);
+                            this.saveDB();
+                            Swal.fire('Dihapus!', 'Data telah dihapus.', 'success');
+                        }
+                    });
+                },
+
+                // SPPD Specific Logic
+                addPengikut() {
+                    this.formSppd.pengikut.push({ pegawaiId: '', keterangan: '' });
+                },
+                removePengikut(index) {
+                    this.formSppd.pengikut.splice(index, 1);
+                },
+                calculateDays() {
+                    if(this.formSppd.tglBerangkat && this.formSppd.tglKembali) {
+                        const start = new Date(this.formSppd.tglBerangkat);
+                        const end = new Date(this.formSppd.tglKembali);
+                        const diffTime = Math.abs(end - start);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Termasuk hari H
+                        this.formSppd.lamaHari = diffDays > 0 ? diffDays : 0;
+                    }
+                },
+                resetFormSppd() {
+                    this.formSppd = { nomor: '', rekeningId: '', maksud: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                },
+                saveSPPD() {
+                    if(this.formSppd.lamaHari <= 0) {
+                        Swal.fire('Error', 'Tanggal kembali harus setelah atau sama dengan tanggal berangkat', 'error'); return;
+                    }
+                    const newSppd = { ...this.formSppd, id: Date.now().toString(), createdAt: new Date().toISOString() };
+                    this.db.sppd.push(newSppd);
+                    this.saveDB();
+                    Swal.fire('Berhasil', 'Data SPPD tersimpan. Silahkan klik Cetak Dokumen.', 'success');
+                    this.resetFormSppd();
+                },
+                getPegawaiName(id) {
+                    const p = this.db.pegawai.find(x => x.id === id);
+                    return p ? p.nama : '-';
+                },
+                openLaporan(item) {
+                    this.modalLaporan.sppdId = item.id;
+                    this.modalLaporan.hasil = item.laporanHasil || '';
+                    this.modalLaporan.isOpen = true;
+                },
+                closeLaporan() {
+                    this.modalLaporan.isOpen = false;
+                    this.modalLaporan.sppdId = null;
+                    this.modalLaporan.hasil = '';
+                },
+                saveLaporan() {
+                    const index = this.db.sppd.findIndex(s => s.id === this.modalLaporan.sppdId);
+                    if(index !== -1) {
+                        this.db.sppd[index].laporanHasil = this.modalLaporan.hasil;
+                        this.saveDB();
+                        Swal.fire('Tersimpan!', 'Laporan perjalanan dinas berhasil disimpan.', 'success');
+                    }
+                    this.closeLaporan();
+                },
+                exportExcelSPPD() {
+                    let csvContent = "data:text/csv;charset=utf-8,";
+                    csvContent += "No SPPD,Pegawai Utama,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
+                    
+                    this.db.sppd.forEach(row => {
+                        const utama = this.getPegawaiName(row.pegawaiUtama);
+                        const lokasi = this.db.lokasi.find(l => l.id === row.lokasiId)?.tujuan || '-';
+                        const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
+                        const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
+                        
+                        let rowData = `"${row.nomor}","${utama}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
+                        csvContent += rowData + "\n";
+                    });
+                    
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", "Data_SPPD_Puskesmas.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
+                generateGoogleSheets() {
+                    if (!this.isGAS) {
+                        Swal.fire('Mode Lokal', 'Aplikasi saat ini berjalan di mode lokal (bukan Apps Script). Jika ingin menghubungkan ke Google Sheets, jalankan aplikasi ini dari URL Deployment Apps Script.', 'info');
+                        return;
+                    }
+                    
+                    Swal.fire({
+                        title: 'Generate Sheets?',
+                        text: 'Aksi ini akan membuat dan menyingkronkan struktur sheet (Pegawai, Rekening, dll) ke file Spreadsheet Anda secara otomatis.',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Generate!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.isSyncing = true;
+                            // Inject dummy data structure minimally if entirely empty so headers generate
+                            if (this.db.sppd.length === 0) {
+                                this.db.sppd.push({id: 'DUMMY', nomor: '-', rekeningId: '-', maksud: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
+                            }
+                            
+                            google.script.run
+                                .withSuccessHandler((res) => {
+                                    // Remove dummy if we inserted it
+                                    this.db.sppd = this.db.sppd.filter(s => s.id !== 'DUMMY');
+                                    this.isSyncing = false;
+                                    Swal.fire('Berhasil!', 'Sheet telah terbuat dan sinkron dengan Spreadsheet Anda.', 'success');
+                                })
+                                .withFailureHandler((err) => {
+                                    this.db.sppd = this.db.sppd.filter(s => s.id !== 'DUMMY');
+                                    this.isSyncing = false;
+                                    Swal.fire('Gagal', err.message, 'error');
+                                })
+                                .saveDatabase(this.db, this.settings);
+                        }
+                    });
+                },
+                handleLogoUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    if (file.size > 500 * 1024) {
+                        Swal.fire('Terlalu Besar', 'Ukuran logo maksimal 500 KB.', 'warning');
+                        event.target.value = '';
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.settings.kopLogo = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                },
+                handleAppLogoUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    if (file.size > 500 * 1024) {
+                        Swal.fire('Terlalu Besar', 'Ukuran logo maksimal 500 KB.', 'warning');
+                        event.target.value = '';
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.settings.appLogo = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                },
+                saveSettings() {
+                    localStorage.setItem('sppd_settings', JSON.stringify(this.settings));
+                    // Panggil saveDB juga untuk melempar setting terbaru ke Google Sheets
+                    this.saveDB();
+                    Swal.fire('Tersimpan', 'Pengaturan dokumen berhasil disimpan.', 'success');
+                },
+
+                // ==========================================
+                // GENERATE PDF PDF LOGIC (jsPDF + Permendagri)
+                // ==========================================
+                generatePDF(sppdData) {
+                    try {
+                        const paperDimensions = {
+                            'f4': [215.9, 330.2],
+                            'legal': [215.9, 355.6],
+                            'a4': [210, 297]
+                        };
+                        const dim = paperDimensions[this.settings.paperSize] || paperDimensions['f4'];
+                        const doc = new jspdf.jsPDF({ orientation: 'p', unit: 'mm', format: dim });
+                        
+                        // Helpers
+                        const margin = this.settings.marginTop;
+                        const centerX = dim[0] / 2;
+                        const pageWidth = dim[0];
+                        let y = margin;
+                        
+                        const utama = this.db.pegawai.find(p => p.id === sppdData.pegawaiUtama);
+                        const lokasi = this.db.lokasi.find(l => l.id === sppdData.lokasiId);
+                        const rekening = this.db.rekening.find(r => r.id === sppdData.rekeningId);
+                        
+                        const drawKopSurat = () => {
+                            let currentY = y;
+                            if (this.settings.kopLogo) {
+                                try { doc.addImage(this.settings.kopLogo, 15, currentY, 22, 26); } catch (e) { }
+                            }
+
+                            doc.setFont("times", "bold");
+                            doc.setFontSize(14);
+                            doc.text(this.settings.kopInstansi || '', centerX, currentY, { align: 'center' });
+                            doc.setFontSize(16);
+                            doc.text(this.settings.kopDinas || '', centerX, currentY+6, { align: 'center' });
+                            doc.setFontSize(14);
+                            doc.text(this.settings.kopUptd || '', centerX, currentY+12, { align: 'center' });
+                            doc.setFont("times", "normal");
+                            doc.setFontSize(10);
+                            
+                            let alamatLines = doc.splitTextToSize(this.settings.kopAlamat || '', pageWidth - 40);
+                            doc.text(alamatLines, centerX, currentY+17, { align: 'center' });
+                            
+                            y += 20 + (alamatLines.length * 4);
+                            doc.setLineWidth(0.5); doc.line(15, y, pageWidth-15, y);
+                            doc.setLineWidth(1.0); doc.line(15, y+1, pageWidth-15, y+1);
+                            y += 8;
+                        };
+
+                        const printTtd = (yPos) => {
+                            doc.setFont("times", "normal");
+                            doc.text("Dikeluarkan di : Sintang", pageWidth - 70, yPos);
+                            doc.text(`Pada tanggal   : ${sppdData.tglBerangkat}`, pageWidth - 70, yPos + 5);
+                            doc.setFont("times", "bold");
+                            doc.text("KEPALA UPTD PUSKESMAS", pageWidth - 70, yPos + 12);
+                            doc.text("TANJUNG PURI", pageWidth - 70, yPos + 17);
+                            doc.text(this.settings.kepalaNama, pageWidth - 70, yPos + 40);
+                            doc.setFont("times", "normal");
+                            doc.text(`NIP. ${this.settings.kepalaNip}`, pageWidth - 70, yPos + 45);
+                        };
+
+                        // ----------------- DOKUMEN 1: SPT -----------------
+                        drawKopSurat();
+                        doc.setFont("times", "bold"); doc.setFontSize(12);
+                        doc.text("SURAT PERINTAH TUGAS", centerX, y, { align: 'center' });
+                        doc.line(centerX - 30, y+1, centerX + 30, y+1);
+                        doc.setFont("times", "normal");
+                        doc.text(`Nomor: ${sppdData.nomor}`, centerX, y+6, { align: 'center' });
+                        y += 15;
+
+                        doc.setFontSize(11);
+                        doc.text("Dasar", 20, y); doc.text(":", 45, y);
+                        let dasarText = doc.splitTextToSize("DPA SKPD UPTD Puskesmas Tanjung Puri Tahun Anggaran 2026", pageWidth - 55);
+                        doc.text(dasarText, 50, y);
+                        y += 10;
+                        
+                        doc.setFont("times", "bold");
+                        doc.text("MEMERINTAHKAN :", centerX, y, { align: 'center' });
+                        y += 8; doc.setFont("times", "normal");
+
+                        let people = [{...utama, ket: 'Utama'}];
+                        sppdData.pengikut.forEach(png => {
+                            let pData = this.db.pegawai.find(p => p.id === png.pegawaiId);
+                            if(pData) people.push({...pData, ket: 'Pengikut'});
+                        });
+
+                        doc.text("Kepada", 20, y); doc.text(":", 45, y);
+                        people.forEach((person, idx) => {
+                            doc.text(`${idx+1}.`, 50, y);
+                            doc.text(`Nama`, 55, y);     doc.text(`: ${person.nama}`, 75, y); y+=5;
+                            doc.text(`NIP`, 55, y);      doc.text(`: ${person.nip}`, 75, y); y+=5;
+                            doc.text(`Pangkat/Gol`, 55, y); doc.text(`: ${person.pangkat} / ${person.golongan}`, 75, y); y+=5;
+                            doc.text(`Jabatan`, 55, y);  doc.text(`: ${person.jabatan}`, 75, y); y+=8;
+                        });
+
+                        doc.text("Untuk", 20, y); doc.text(":", 45, y);
+                        let maksudLines = doc.splitTextToSize(sppdData.maksud, pageWidth - 55);
+                        doc.text(maksudLines, 50, y);
+                        y += (maksudLines.length * 5) + 5;
+
+                        doc.text("Waktu", 20, y); doc.text(":", 45, y);
+                        doc.text(`${sppdData.lamaHari} Hari (${sppdData.tglBerangkat} s/d ${sppdData.tglKembali})`, 50, y);
+                        y += 10;
+                        doc.text("Tujuan", 20, y); doc.text(":", 45, y);
+                        doc.text(lokasi ? lokasi.tujuan : '-', 50, y);
+                        y += 20;
+
+                        printTtd(y);
+
+                        // ----------------- DOKUMEN 2: SPD -----------------
+                        doc.addPage(); y = margin; drawKopSurat();
+                        doc.setFont("times", "bold");
+                        doc.text("SURAT PERJALANAN DINAS (SPD)", centerX, y, { align: 'center' });
+                        doc.setFont("times", "normal"); y += 10;
+
+                        const spdBody = [
+                            ["1", "Pejabat berwenang yang memberi perintah", "Kepala UPTD Puskesmas Tanjung Puri"],
+                            ["2", "Nama Pegawai yang diperintah", utama ? utama.nama : ''],
+                            ["3", "a. Pangkat dan Golongan\nb. Jabatan", `${utama?utama.pangkat:''} / ${utama?utama.golongan:''}\n${utama?utama.jabatan:''}`],
+                            ["4", "Maksud Perjalanan Dinas", sppdData.maksud],
+                            ["5", "Alat angkutan yang dipergunakan", "Kendaraan Umum / Dinas"],
+                            ["6", "a. Tempat berangkat\nb. Tempat tujuan", `Puskesmas Tanjung Puri\n${lokasi?lokasi.tujuan:''}`],
+                            ["7", "a. Lama perjalanan dinas\nb. Tanggal berangkat\nc. Tanggal kembali", `${sppdData.lamaHari} Hari\n${sppdData.tglBerangkat}\n${sppdData.tglKembali}`],
+                            ["8", "Pembebanan Anggaran\na. Instansi\nb. Rekening", `Puskesmas Tanjung Puri\n${rekening?rekening.kegiatan:''}`]
+                        ];
+
+                        doc.autoTable({
+                            startY: y, body: spdBody, theme: 'grid',
+                            styles: { font: 'times', fontSize: 10, cellPadding: 2, textColor: [0,0,0] },
+                            columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 60 } }
+                        });
+
+                        y = doc.lastAutoTable.finalY + 15;
+                        printTtd(y);
+
+                        // ----------------- DOKUMEN 3: KWITANSI -----------------
+                        doc.addPage(); y = margin; drawKopSurat();
+                        doc.setFont("times", "bold");
+                        doc.text("RINCIAN BIAYA PERJALANAN DINAS", centerX, y, { align: 'center' });
+                        y += 15;
+                        
+                        let tarifUH = 100000;
+                        if(this.db.shs.length > 0) tarifUH = this.db.shs[0].uangHarian;
+                        let transport = lokasi ? lokasi.transport : 50000;
+                        let totalOrang = people.length;
+                        let totalBiayaUH = tarifUH * sppdData.lamaHari * totalOrang;
+                        let totalTransport = transport * totalOrang;
+                        let grandTotal = totalBiayaUH + totalTransport;
+
+                        const kuitansiBody = [
+                            ["1", `Uang Harian (${sppdData.lamaHari} Hari x ${totalOrang} Orang)`, `Rp ${this.formatNumber(tarifUH)}`, `Rp ${this.formatNumber(totalBiayaUH)}`],
+                            ["2", `Biaya Transportasi PP (${totalOrang} Orang)`, `Rp ${this.formatNumber(transport)}`, `Rp ${this.formatNumber(totalTransport)}`],
+                            ["", "TOTAL BIAYA", "", `Rp ${this.formatNumber(grandTotal)}`]
+                        ];
+
+                        doc.autoTable({
+                            startY: y, head: [['No', 'Rincian Biaya', 'Satuan', 'Jumlah']],
+                            body: kuitansiBody, theme: 'grid',
+                            styles: { font: 'times', fontSize: 10, textColor: [0,0,0] },
+                            headStyles: { fillColor: [240,240,240], textColor: [0,0,0] }
+                        });
+
+                        y = doc.lastAutoTable.finalY + 20; doc.setFont("times", "normal");
+                        doc.text("Telah Menerima Jumlah Uang Tersebut,", 20, y);
+                        doc.text("Yang Menerima", 20, y+5);
+                        doc.text(utama ? utama.nama : '', 20, y+30);
+                        doc.text(`NIP. ${utama ? utama.nip : ''}`, 20, y+35);
+                        
+                        doc.text("Lunas Dibayar Tanggal : .........................", pageWidth - 80, y);
+                        doc.text("Bendahara Pengeluaran,", pageWidth - 80, y+5);
+                        doc.text("(.........................................)", pageWidth - 80, y+30);
+
+                        // ----------------- DOKUMEN 4: LAPORAN -----------------
+                        doc.addPage(); y = margin; drawKopSurat();
+                        doc.setFont("times", "bold");
+                        doc.text("LAPORAN HASIL PERJALANAN DINAS", centerX, y, { align: 'center' });
+                        doc.setLineWidth(0.5); doc.line(centerX - 40, y+1, centerX + 40, y+1);
+                        y += 15; doc.setFontSize(11); doc.setFont("times", "normal");
+                        
+                        const textDasar = doc.splitTextToSize("DPA SKPD UPTD Puskesmas Tanjung Puri", pageWidth - 70);
+                        doc.text("1.", 20, y); doc.text("Dasar", 25, y); doc.text(":", 65, y); doc.text(textDasar, 70, y);
+                        y += (textDasar.length * 5) + 2;
+
+                        const textMaksud = doc.splitTextToSize(sppdData.maksud, pageWidth - 70);
+                        doc.text("2.", 20, y); doc.text("Maksud Tujuan", 25, y); doc.text(":", 65, y); doc.text(textMaksud, 70, y);
+                        y += (textMaksud.length * 5) + 2;
+
+                        doc.text("3.", 20, y); doc.text("Waktu Pelaksanaan", 25, y); doc.text(":", 65, y); 
+                        doc.text(`${sppdData.lamaHari} Hari (${sppdData.tglBerangkat} s/d ${sppdData.tglKembali})`, 70, y);
+                        y += 7;
+
+                        doc.text("4.", 20, y); doc.text("Nama Petugas", 25, y); doc.text(":", 65, y); 
+                        people.forEach((p, i) => { doc.text(`${i+1}. ${p.nama}`, 70, y); y += 5; });
+                        y += 2;
+
+                        const textDaerah = doc.splitTextToSize(lokasi ? lokasi.tujuan : '-', pageWidth - 70);
+                        doc.text("5.", 20, y); doc.text("Daerah Tujuan", 25, y); doc.text(":", 65, y); doc.text(textDaerah, 70, y);
+                        y += (textDaerah.length * 5) + 2;
+
+                        doc.text("6.", 20, y); doc.text("Hasil Kegiatan", 25, y); doc.text(":", 65, y); 
+                        let textLaporanRaw = sppdData.laporanHasil || "Belum ada uraian laporan kegiatan yang diinput.";
+                        let textLaporanLines = doc.splitTextToSize(textLaporanRaw, pageWidth - 70);
+                        
+                        for(let i=0; i < textLaporanLines.length; i++) {
+                            if (y > (dim[1] - margin - 30)) { doc.addPage(); y = margin + 10; }
+                            doc.text(textLaporanLines[i], 70, y); y += 5;
+                        }
+
+                        y += 15;
+                        if (y > (dim[1] - margin - 40)) { doc.addPage(); y = margin + 10; }
+                        doc.text("Sintang, ..............................", pageWidth - 80, y);
+                        doc.text("Pelapor,", pageWidth - 80, y+5);
+                        doc.text(utama ? utama.nama : '', pageWidth - 80, y+30);
+                        doc.text(`NIP. ${utama ? utama.nip : ''}`, pageWidth - 80, y+35);
+
+                        const blob = doc.output('blob');
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                        
+                        Swal.fire('Berhasil', 'Dokumen PDF (SPT, SPD, Kwitansi, Laporan) berhasil di-generate.', 'success');
+
+                    } catch (error) {
+                        console.error(error);
+                        Swal.fire('Error', 'Gagal memproses PDF: ' + error.message, 'error');
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

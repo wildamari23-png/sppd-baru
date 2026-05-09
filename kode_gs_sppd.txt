@@ -1,0 +1,132 @@
+function doGet(e) {
+  // Merender file Index.html
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('e-SPPD UPTD Puskesmas')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// ==========================================
+// FUNGSI MEMUAT DATA DARI GOOGLE SHEETS
+// ==========================================
+function loadAllData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ['Pegawai', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
+  const db = {};
+  
+  sheets.forEach(sheetName => {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      const data = sheet.getDataRange().getValues();
+      if (data.length > 1) {
+        const headers = data[0];
+        const rows = [];
+        for (let i = 1; i < data.length; i++) {
+          let obj = {};
+          for (let j = 0; j < headers.length; j++) {
+            let val = data[i][j];
+            // Jika data berupa JSON String (seperti array pengikut), parsing kembali
+            try {
+               if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+                 val = JSON.parse(val);
+               }
+            } catch(e){}
+            obj[headers[j]] = val;
+          }
+          rows.push(obj);
+        }
+        db[sheetName.toLowerCase()] = rows;
+      } else {
+        db[sheetName.toLowerCase()] = [];
+      }
+    } else {
+       db[sheetName.toLowerCase()] = [];
+    }
+  });
+  
+  // Memuat Pengaturan dari Sheet 'Settings'
+  let settings = null;
+  const setSheet = ss.getSheetByName('Settings');
+  if(setSheet && setSheet.getLastRow() > 0) {
+     const setData = setSheet.getDataRange().getValues();
+     try {
+         // Menggabungkan kembali potongan-potongan string dari baris A1, A2, A3, dst
+         const fullString = setData.map(row => row[0]).join('');
+         settings = JSON.parse(fullString);
+     } catch(e) {}
+  }
+
+  return { db: db, settings: settings };
+}
+
+// ==========================================
+// FUNGSI MENYIMPAN DATA KE GOOGLE SHEETS
+// ==========================================
+function saveDatabase(dbPayload, settingsPayload) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const lock = LockService.getScriptLock();
+  
+  // Mencegah bentrok jika ada banyak user menyimpan bersamaan
+  lock.tryLock(10000); 
+  
+  try {
+    // 1. Simpan Data Master & Transaksi (Tabel DB)
+    for (let key in dbPayload) {
+      const sheetName = key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi nama sheet
+      let sheet = ss.getSheetByName(sheetName);
+      
+      // Jika sheet belum ada, buat otomatis
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+      }
+      
+      sheet.clear(); // Bersihkan data lama
+      
+      const dataArray = dbPayload[key];
+      if (dataArray && dataArray.length > 0) {
+        const headers = Object.keys(dataArray[0]);
+        const rows = [headers];
+        
+        dataArray.forEach(item => {
+          const row = headers.map(h => {
+             let val = item[h];
+             // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
+             if (typeof val === 'object' && val !== null) return JSON.stringify(val);
+             return val;
+          });
+          rows.push(row);
+        });
+        
+        // Tulis semua baris baru ke dalam sheet sekaligus agar cepat
+        sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+      }
+    }
+
+    // 2. Simpan Pengaturan & Logo dengan metode Chunking (Pemotongan)
+    // Untuk menghindari limit 50.000 karakter per cell di Google Sheets
+    if(settingsPayload) {
+      let setSheet = ss.getSheetByName('Settings');
+      if(!setSheet) setSheet = ss.insertSheet('Settings');
+      setSheet.clear();
+      
+      const jsonString = JSON.stringify(settingsPayload);
+      const chunkSize = 45000; // Batas aman di bawah 50.000 karakter
+      const chunks = [];
+      
+      for (let i = 0; i < jsonString.length; i += chunkSize) {
+        chunks.push([jsonString.substring(i, i + chunkSize)]);
+      }
+      
+      // Menyimpan tiap potongan ke baris yang berurutan di Kolom A
+      if (chunks.length > 0) {
+        setSheet.getRange(1, 1, chunks.length, 1).setValues(chunks);
+      }
+    }
+    
+    return { status: 'success', message: 'Tersimpan di Google Sheets' };
+  } catch (error) {
+    return { status: 'error', message: error.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
