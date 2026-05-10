@@ -6,12 +6,37 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+
+const MAIN_SPREADSHEET_ID = '15RpPVRggIkPSP75VkQNt4s37-6EV9hJpDtFK99LfnQU';
+const ABSENSI_SPREADSHEET_ID = '1s1zVQStEiZ9va2HGH-LTOZ6blW-OvajopNjgfEv3EsE';
+const ABSENSI_SHEET_NAME = 'Absensi';
+
+function getDbKey_(sheetName) {
+  if (sheetName === 'TempatBerangkat') return 'tempatBerangkat';
+  return sheetName.toLowerCase();
+}
+
+
+function serializeSheetValue_(value, header) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    const key = String(header || '').toLowerCase();
+    if (key === 'createdat') {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    }
+    if (key.indexOf('tanggal') !== -1 || key.indexOf('tgl') !== -1) {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  return value;
+}
+
 // ==========================================
 // FUNGSI MEMUAT DATA DARI GOOGLE SHEETS
 // ==========================================
 function loadAllData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheets = ['Pegawai', 'Rekening', 'Shs', 'Lokasi', 'Sppd'];
+  const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
+  const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'TempatBerangkat', 'Pertimbangan', 'Sppd'];
   const db = {};
   
   sheets.forEach(sheetName => {
@@ -19,12 +44,12 @@ function loadAllData() {
     if (sheet) {
       const data = sheet.getDataRange().getValues();
       if (data.length > 1) {
-        const headers = data[0];
+        const headers = data[0].map(h => String(h).trim());
         const rows = [];
         for (let i = 1; i < data.length; i++) {
           let obj = {};
           for (let j = 0; j < headers.length; j++) {
-            let val = data[i][j];
+            let val = serializeSheetValue_(data[i][j], headers[j]);
             // Jika data berupa JSON String (seperti array pengikut), parsing kembali
             try {
                if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
@@ -35,12 +60,12 @@ function loadAllData() {
           }
           rows.push(obj);
         }
-        db[sheetName.toLowerCase()] = rows;
+        db[getDbKey_(sheetName)] = rows;
       } else {
-        db[sheetName.toLowerCase()] = [];
+        db[getDbKey_(sheetName)] = [];
       }
     } else {
-       db[sheetName.toLowerCase()] = [];
+       db[getDbKey_(sheetName)] = [];
     }
   });
   
@@ -56,14 +81,464 @@ function loadAllData() {
      } catch(e) {}
   }
 
-  return { db: db, settings: settings };
+  return { db: db, settings: settings, absensiStatus: {} };
+}
+
+
+// ==========================================
+// FUNGSI STATUS ABSENSI PEGAWAI
+// ==========================================
+function getAbsensiStatus(pegawaiIds, tanggalBerangkat) {
+  return loadAbsensiStatus_(tanggalBerangkat, pegawaiIds || []);
+}
+
+function loadAbsensiStatus_(tanggalBerangkat, pegawaiIds) {
+  const statusMap = {};
+  const targetDateKey = normalizeDateKey_(tanggalBerangkat);
+  if (!targetDateKey) return statusMap;
+
+  const allowedIds = {};
+  (pegawaiIds || []).forEach(id => {
+    const key = String(id || '').trim();
+    if (key) allowedIds[key] = true;
+  });
+  const filterById = Object.keys(allowedIds).length > 0;
+
+  try {
+    const ssAbsensi = SpreadsheetApp.openById(ABSENSI_SPREADSHEET_ID);
+    const sheet = ssAbsensi.getSheetByName(ABSENSI_SHEET_NAME);
+    if (!sheet || sheet.getLastRow() < 2) return statusMap;
+
+    const values = sheet.getDataRange().getValues();
+    // Kolom B = tanggal absensi, Kolom E = ID_QR, Kolom K = Keterangan/status kehadiran, Kolom L = keterangan TL.
+    // Dibaca dari bawah agar data absensi terbaru per pegawai pada tanggal berangkat menjadi prioritas.
+    for (let i = values.length - 1; i >= 1; i--) {
+      const row = values[i];
+      const rowDateKey = normalizeDateKey_(row[1]);
+      if (rowDateKey !== targetDateKey) continue;
+
+      const idQr = String(row[4] || '').trim();
+      if (!idQr || statusMap[idQr] || (filterById && !allowedIds[idQr])) continue;
+
+      const status = String(row[10] || '').trim().toUpperCase();
+      const detailTl = String(row[11] || '').trim();
+      statusMap[idQr] = {
+        id: idQr,
+        tanggal: targetDateKey,
+        status: status,
+        detailTl: detailTl,
+        rowNumber: i + 1,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } catch (error) {
+    console.error('Gagal membaca spreadsheet absensi: ' + error.message);
+  }
+  return statusMap;
+}
+
+function normalizeDateKey_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const text = String(value).trim();
+  if (!text) return '';
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return isoMatch[1] + '-' + isoMatch[2] + '-' + isoMatch[3];
+
+  const slashMatch = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (slashMatch) {
+    return slashMatch[3] + '-' + ('0' + slashMatch[2]).slice(-2) + '-' + ('0' + slashMatch[1]).slice(-2);
+  }
+
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return text;
+}
+
+
+// ==========================================
+// FUNGSI TEMPLATE GOOGLE DOCS & PDF
+// ==========================================
+function ensureDocumentTemplates(settingsPayload) {
+  const settings = settingsPayload || {};
+  const templateIds = settings.templateIds || {};
+  const templates = getDefaultTemplateDefinitions_();
+
+  Object.keys(templates).forEach(key => {
+    if (!templateIds[key]) {
+      const doc = DocumentApp.create('Template e-SPPD ' + templates[key].name);
+      const body = doc.getBody();
+      body.clear();
+      templates[key].content.split('\n').forEach(line => body.appendParagraph(line));
+      doc.saveAndClose();
+      templateIds[key] = doc.getId();
+    }
+  });
+
+  settings.templateIds = templateIds;
+  return {
+    templateIds: templateIds,
+    editUrls: Object.keys(templateIds).reduce((acc, key) => {
+      acc[key] = 'https://docs.google.com/document/d/' + templateIds[key] + '/edit';
+      return acc;
+    }, {})
+  };
+}
+
+function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, printOptions) {
+  const settings = settingsPayload || {};
+  const ensured = ensureDocumentTemplates(settings);
+  const data = buildTemplateData_(sppdData || {}, dbPayload || {}, settings);
+  const output = DocumentApp.create('Dokumen SPPD - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
+  applyDocumentLayout_(output, printOptions || {});
+  const body = output.getBody();
+  body.clear();
+
+  ['spt', 'spd', 'kwitansi', 'laporan'].forEach((key, index) => {
+    const templateId = ensured.templateIds[key];
+    const templateDoc = DocumentApp.openById(templateId);
+    if (index > 0) body.appendPageBreak();
+    appendBodyElements_(body, templateDoc.getBody());
+  });
+
+  insertSptEmployeeTable_(body, data.__PEGAWAI_SPT || []);
+  insertSpdEmployeeTable_(body, data.__PEGAWAI_SPD || []);
+  fillBodyPlaceholders_(body, data);
+  output.saveAndClose();
+  const pdfBlob = DriveApp.getFileById(output.getId()).getAs(MimeType.PDF).setName(output.getName() + '.pdf');
+  const pdfFile = DriveApp.createFile(pdfBlob);
+  return {
+    status: 'success',
+    templateIds: ensured.templateIds,
+    docUrl: 'https://docs.google.com/document/d/' + output.getId() + '/edit',
+    pdfUrl: pdfFile.getUrl()
+  };
+}
+
+
+function appendBodyElements_(targetBody, sourceBody) {
+  const count = sourceBody.getNumChildren();
+  for (let i = 0; i < count; i++) {
+    const child = sourceBody.getChild(i);
+    const copy = child.copy();
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      targetBody.appendParagraph(copy.asParagraph());
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      targetBody.appendTable(copy.asTable());
+    } else if (type === DocumentApp.ElementType.LIST_ITEM) {
+      targetBody.appendListItem(copy.asListItem());
+    } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
+      targetBody.appendHorizontalRule();
+    } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
+      targetBody.appendPageBreak();
+    } else if (child.getText && child.getText()) {
+      targetBody.appendParagraph(child.getText());
+    }
+  }
+}
+
+function fillBodyPlaceholders_(body, data) {
+  Object.keys(data || {}).forEach(key => {
+    if (key.indexOf('__') === 0) return;
+    body.replaceText('\\{\\{' + key + '\\}\\}', String(data[key] === undefined || data[key] === null ? '' : data[key]));
+  });
+}
+
+function insertSptEmployeeTable_(body, people) {
+  const placeholder = '{{TABEL_PEGAWAI_SPT}}';
+  const rows = buildSptEmployeeRows_(people || []);
+
+  // Placeholder bisa diletakkan sebagai paragraf biasa atau di dalam sel tabel template.
+  // Jika berada di dalam sel tabel, tabel pegawai disisipkan sebagai nested table transparan
+  // agar menyatu dengan layout tabel Google Docs yang sudah diedit pengguna.
+  for (let i = body.getNumChildren() - 1; i >= 0; i--) {
+    const child = body.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      const paragraph = child.asParagraph();
+      if (paragraph.getText().indexOf(placeholder) === -1) continue;
+      const table = body.insertTable(i + 1, rows);
+      styleSptEmployeeTable_(table);
+      body.removeChild(paragraph);
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      replaceDynamicTablePlaceholderInTable_(child.asTable(), placeholder, rows, styleSptEmployeeTable_);
+    }
+  }
+}
+
+function replaceDynamicTablePlaceholderInTable_(table, placeholder, rows, styler) {
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      replaceDynamicTablePlaceholderInCell_(row.getCell(c), placeholder, rows, styler);
+    }
+  }
+}
+
+function replaceDynamicTablePlaceholderInCell_(cell, placeholder, rows, styler) {
+  for (let i = 0; i < cell.getNumChildren(); i++) {
+    const child = cell.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      const paragraph = child.asParagraph();
+      if (paragraph.getText().indexOf(placeholder) === -1) continue;
+      const remainingText = paragraph.getText().split(placeholder).join('').trim();
+      paragraph.setText(remainingText || '\u00A0');
+      const nestedTable = cell.appendTable(rows);
+      styler(nestedTable);
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      replaceDynamicTablePlaceholderInTable_(child.asTable(), placeholder, rows, styler);
+    }
+  }
+}
+
+function styleSptEmployeeTable_(table) {
+  table.setBorderWidth(0);
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    row.getCell(0).setWidth(18);
+    row.getCell(1).setWidth(88);
+    row.getCell(2).setWidth(10);
+    row.getCell(3).setWidth(430);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      row.getCell(c).setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(1).setPaddingRight(1);
+    }
+  }
+}
+
+function insertSpdEmployeeTable_(body, people) {
+  const placeholder = '{{TABEL_PEGAWAI_SPD}}';
+  const rows = buildSpdEmployeeRows_(people || []);
+  for (let i = body.getNumChildren() - 1; i >= 0; i--) {
+    const child = body.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      const paragraph = child.asParagraph();
+      if (paragraph.getText().indexOf(placeholder) === -1) continue;
+      const table = body.insertTable(i + 1, rows);
+      styleSpdEmployeeTable_(table);
+      body.removeChild(paragraph);
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      replaceDynamicTablePlaceholderInTable_(child.asTable(), placeholder, rows, styleSpdEmployeeTable_);
+    }
+  }
+}
+
+function buildSpdEmployeeRows_(people) {
+  const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  return (people.length ? people : [{}]).map((p, index) => {
+    const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
+    return [
+      safeCellText_(letters[index] ? letters[index] + '.' : (index + 1) + '.'),
+      safeCellText_([p.nama, p.nip ? 'NIP. ' + p.nip : ''].filter(Boolean).join('\n')),
+      safeCellText_(pangkatGol || '-'),
+      safeCellText_(p.jabatan || '-'),
+      safeCellText_(p.nomorSpd || '-')
+    ];
+  });
+}
+
+function styleSpdEmployeeTable_(table) {
+  table.setBorderWidth(0);
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    row.getCell(0).setWidth(24);
+    row.getCell(1).setWidth(170);
+    row.getCell(2).setWidth(120);
+    row.getCell(3).setWidth(120);
+    row.getCell(4).setWidth(130);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      row.getCell(c).setPaddingTop(1).setPaddingBottom(1).setPaddingLeft(2).setPaddingRight(2);
+    }
+  }
+}
+
+function buildSptEmployeeRows_(people) {
+  const rows = [];
+  (people.length ? people : [{}]).forEach((p, index) => {
+    const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
+    rows.push([safeCellText_(String(index + 1) + '.'), 'Nama', ':', safeCellText_(p.nama || '-')]);
+    rows.push([safeCellText_(' '), 'Pangkat/Golongan', ':', safeCellText_(pangkatGol || '-')]);
+    rows.push([safeCellText_(' '), 'Jabatan', ':', safeCellText_(p.jabatan || '-')]);
+  });
+  return rows;
+}
+
+function safeCellText_(value) {
+  const text = String(value === undefined || value === null ? '' : value);
+  return text.trim() ? text : '\u00A0';
+}
+
+function applyDocumentLayout_(doc, options) {
+  const body = doc.getBody();
+  const mmToPt = mm => Number(mm || 0) * 72 / 25.4;
+  const sizes = {
+    f4: [215.9, 330.2],
+    a4: [210, 297],
+    legal: [215.9, 355.6]
+  };
+  const selected = sizes[String(options.paperSize || 'f4').toLowerCase()] || sizes.f4;
+  const isLandscape = options.orientation === 'landscape';
+  body.setPageWidth(mmToPt(isLandscape ? selected[1] : selected[0]));
+  body.setPageHeight(mmToPt(isLandscape ? selected[0] : selected[1]));
+  body.setMarginTop(mmToPt(options.marginTop || 15));
+  body.setMarginRight(mmToPt(options.marginRight || 15));
+  body.setMarginBottom(mmToPt(options.marginBottom || 15));
+  body.setMarginLeft(mmToPt(options.marginLeft || 15));
+}
+
+function getDefaultTemplateDefinitions_() {
+  return {
+    spt: {
+      name: 'SPT',
+      content: '{{KOP_UPTD}}\n{{KOP_ALAMAT}}\nEmail : {{KOP_EMAIL}}\nTelp. {{KOP_TELP}}\n\nS U R A T   P E R I N T A H   T U G A S\nNOMOR : {{NOMOR_SPT}}\n\nDasar / Pertimbangan :\n{{DASAR_PERTIMBANGAN}}\n\nMEMERINTAHKAN\nKepada :\n{{TABEL_PEGAWAI_SPT}}\n\nUntuk :\n{{MAKSUD}}\n\nTanggal Berangkat : {{TGL_BERANGKAT}}\nTanggal Kembali   : {{TGL_KEMBALI}}\nSumber Dana       : {{SUMBER_DANA}}\n\nDikeluarkan di : Sintang\nPada tanggal   : {{TANGGAL_SPT}}\n\nKepala UPTD Puskesmas Tanjung Puri\n\n\n\n{{KEPALA_NAMA}}\n{{KEPALA_JABATAN}}\nNIP. {{KEPALA_NIP}}'
+    },
+    spd: {
+      name: 'SPD',
+      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERJALANAN DINAS (SPD)\nNomor: {{NOMOR_SPD}}\nTanggal Surat: {{TANGGAL_SPD}}\n\nPejabat pemberi perintah: Kepala UPTD Puskesmas Tanjung Puri\nPegawai yang melaksanakan Perjalanan Dinas:\n{{TABEL_PEGAWAI_SPD}}\nMaksud: {{MAKSUD}}\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTempat Tujuan: {{TUJUAN}}\nLama Perjalanan: {{LAMA_HARI}} hari\nPembebanan Rekening:\n{{REKENING}}\n\nSintang, {{TANGGAL_SPD}}\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+    },
+    kwitansi: {
+      name: 'Kwitansi',
+      content: '{{KOP_UPTD}}\n\nRINCIAN BIAYA PERJALANAN DINAS\nNomor SPD: {{NOMOR_SPD}}\nPegawai: {{PEGAWAI_UTAMA}}\nTujuan: {{TUJUAN}}\nTanggal Kwitansi: {{TANGGAL_KWITANSI}}\n\nUang Harian: Rp {{UANG_HARIAN}}\nTransport: Rp {{TRANSPORT}}\nTotal Estimasi: Rp {{TOTAL_BIAYA}}\n\nLunas Dibayar Tanggal: {{TANGGAL_KWITANSI}}'
+    },
+    laporan: {
+      name: 'Laporan',
+      content: '{{KOP_UPTD}}\n\nLAPORAN HASIL PERJALANAN DINAS\nNomor SPT: {{NOMOR_SPT}}\nNomor SPD: {{NOMOR_SPD}}\nDasar/Pertimbangan: {{DASAR_PERTIMBANGAN}}\n\nMaksud: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nPetugas:\n{{DAFTAR_PEGAWAI}}\nTujuan: {{TUJUAN}}\n\nHasil Kegiatan:\n{{LAPORAN_HASIL}}'
+    }
+  };
+}
+
+function buildTemplateData_(sppd, db, settings) {
+  db = db || {};
+  settings = settings || {};
+  const pegawai = db.pegawai || [];
+  const lokasi = db.lokasi || [];
+  const tempatBerangkat = db.tempatBerangkat || [];
+  const rekeningRows = db.rekening || [];
+  const shs = db.shs || [];
+  const utama = findById_(pegawai, sppd.pegawaiUtama) || {};
+  const tujuan = findById_(lokasi, sppd.lokasiId) || {};
+  const berangkat = findById_(tempatBerangkat, sppd.tempatBerangkatId) || {};
+  const rekening = findById_(rekeningRows, sppd.rekeningId) || {};
+  const people = [utama].concat((sppd.pengikut || []).map(p => findById_(pegawai, p.pegawaiId)).filter(Boolean));
+  const peopleSpd = people.map((p, index) => ({
+    nama: p.nama || '-',
+    nip: p.nip || p.nipd || p.NIPD || '',
+    pangkat: p.pangkat || '',
+    golongan: p.golongan || '',
+    jabatan: p.jabatan || '',
+    nomorSpd: buildPersonSpdNumber_(sppd.nomorSpd || sppd.nomor || '', index)
+  }));
+  const uangHarian = Number((shs[0] || {}).uangHarian || 0);
+  const transport = Number(tujuan.transport || 0);
+  const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
+  const daftarPegawaiSpt = people.map((p, i) => {
+    return (i + 1) + '. Nama          : ' + (p.nama || '-') + '\n' +
+      '   Pangkat/Gol.  : ' + [p.pangkat, p.golongan].filter(Boolean).join(' / ') + '\n' +
+      '   Jabatan       : ' + (p.jabatan || '-');
+  }).join('\n');
+  const sumberDana = [rekening.sumberDana, rekening.nama_kegiatan || rekening.nama_sub_Kegiatan || rekening.nama_objek_belanja].filter(Boolean).join(' - ');
+
+  return {
+    KOP_INSTANSI: settings.kopInstansi || '',
+    KOP_DINAS: settings.kopDinas || '',
+    KOP_UPTD: settings.kopUptd || '',
+    KOP_ALAMAT: settings.kopAlamat || '',
+    KOP_EMAIL: settings.kopEmail || 'pkmtpsintang@gmail.com',
+    KOP_TELP: settings.kopTelp || '(0565) 21550 Hotline SMS 081256262764 Kode Pos 78611',
+    KEPALA_NAMA: settings.kepalaNama || '',
+    KEPALA_NIP: settings.kepalaNip || '',
+    KEPALA_JABATAN: formatJabatanGolongan_(settings.kepalaJabatan || 'PEMBINA', settings.kepalaGolongan || 'IV/a'),
+    NOMOR_SPT: sppd.nomorSpt || sppd.nomor || '',
+    NOMOR_SPD: sppd.nomorSpd || sppd.nomor || '',
+    TANGGAL_SPT: formatDisplayDate_(sppd.tanggal_spt || sppd.tglBerangkat),
+    TANGGAL_SPD: formatDisplayDate_(sppd.tanggal_spd || sppd.tglBerangkat),
+    TANGGAL_KWITANSI: formatDisplayDate_(sppd.tanggal_kwitansi || sppd.tglBerangkat),
+    TGL_BERANGKAT: formatDisplayDate_(sppd.tglBerangkat),
+    TGL_KEMBALI: formatDisplayDate_(sppd.tglKembali),
+    LAMA_HARI: String(sppd.lamaHari || ''),
+    DASAR_PERTIMBANGAN: sppd.dasar_pertimbangan || '',
+    MAKSUD: sppd.maksud || '',
+    TEMPAT_BERANGKAT: berangkat.tempat || 'UPTD Puskesmas Tanjung Puri',
+    TUJUAN: tujuan.tujuan || tujuan.lokasi || tujuan.nama_lokasi || tujuan.tujuan_lokasi || '-',
+    PEGAWAI_UTAMA: utama.nama || '-',
+    DAFTAR_PEGAWAI: people.map((p, i) => (i + 1) + '. ' + (p.nama || '-') + ' - ' + (p.jabatan || '') + ' / NIP. ' + (p.nip || '')).join('\n'),
+    DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
+    __PEGAWAI_SPT: people,
+    __PEGAWAI_SPD: peopleSpd,
+    SUMBER_DANA: sumberDana || '-',
+    REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
+    UANG_HARIAN: formatNumber_(uangHarian),
+    TRANSPORT: formatNumber_(transport),
+    TOTAL_BIAYA: formatNumber_(Number(sppd.nilai_sppd || total)),
+    LAPORAN_HASIL: sppd.laporanHasil || 'Belum ada uraian laporan kegiatan yang diinput.'
+  };
+}
+
+
+function buildPersonSpdNumber_(baseNumber, index) {
+  const suffix = String(index + 1).padStart(2, '0');
+  if (!baseNumber) return suffix + '/SPD';
+  return String(baseNumber) + '-' + suffix;
+}
+
+function formatJabatanGolongan_(jabatan, golongan) {
+  const jab = String(jabatan || '').trim();
+  const gol = String(golongan || '').trim();
+  if (jab && gol && jab.indexOf(gol) === -1) return jab + '/(' + gol + ')';
+  return jab || gol || '';
+}
+
+function formatDisplayDate_(value) {
+  const key = normalizeDateKey_(value);
+  const match = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value ? String(value) : '';
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const monthIndex = Number(match[2]) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return value ? String(value) : '';
+  return match[3] + ' ' + months[monthIndex] + ' ' + match[1];
+}
+
+function fillTemplate_(text, data) {
+  let output = text || '';
+  Object.keys(data).forEach(key => {
+    output = output.split('{{' + key + '}}').join(data[key]);
+  });
+  return output;
+}
+
+function findById_(rows, id) {
+  return (rows || []).find(row => String(row.id) === String(id));
+}
+
+function formatNumber_(num) {
+  return Number(num || 0).toLocaleString('id-ID');
+}
+
+function normalizeDateTimeForSheet_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  const text = String(value).trim();
+  if (!text || text === '-') return '';
+  const normalizedText = text.replace('T', ' ').replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
+  const match = normalizedText.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (match) return match[1] + '-' + match[2] + '-' + match[3] + ' ' + (match[4] || '00') + ':' + (match[5] || '00') + ':' + (match[6] || '00');
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  return text;
 }
 
 // ==========================================
 // FUNGSI MENYIMPAN DATA KE GOOGLE SHEETS
 // ==========================================
 function saveDatabase(dbPayload, settingsPayload) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
   const lock = LockService.getScriptLock();
   
   // Mencegah bentrok jika ada banyak user menyimpan bersamaan
@@ -72,7 +547,7 @@ function saveDatabase(dbPayload, settingsPayload) {
   try {
     // 1. Simpan Data Master & Transaksi (Tabel DB)
     for (let key in dbPayload) {
-      const sheetName = key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi nama sheet
+      const sheetName = key === 'tempatBerangkat' ? 'TempatBerangkat' : key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi nama sheet
       let sheet = ss.getSheetByName(sheetName);
       
       // Jika sheet belum ada, buat otomatis
@@ -83,16 +558,30 @@ function saveDatabase(dbPayload, settingsPayload) {
       sheet.clear(); // Bersihkan data lama
       
       const dataArray = dbPayload[key];
-      if (dataArray && dataArray.length > 0) {
-        const headers = Object.keys(dataArray[0]);
+      const defaultHeaders = {
+        pegawai: ['id', 'nip', 'nama', 'pangkat', 'golongan', 'jabatan'],
+        jabatan: ['id', 'jabatan'],
+        rekening: ['id', 'nama_kegiatan', 'kode_rek_kegiatan', 'nama_sub_Kegiatan', 'kode_rek_sub_kegiatan', 'sumberDana', 'kode_rek_objek_belanja', 'nama_objek_belanja', 'pagu_dana'],
+        shs: ['id', 'kriteria', 'uangHarian', 'penginapan'],
+        lokasi: ['id', 'tujuan', 'jarak', 'transport'],
+        tempatBerangkat: ['id', 'tempat', 'keterangan'],
+        pertimbangan: ['id', 'dasar_pertimbangan'],
+        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'tempatBerangkatId', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'tanggal_spt', 'tanggal_spd', 'tanggal_kwitansi', 'laporanHasil', 'createdAt', 'dasar_pertimbangan', 'nilai_sppd']
+      };
+      const baseHeaders = defaultHeaders[key] || (dataArray && dataArray.length > 0 ? Object.keys(dataArray[0]) : []);
+      const extraHeaders = [];
+      (dataArray || []).forEach(item => Object.keys(item).forEach(h => { if (baseHeaders.indexOf(h) === -1 && extraHeaders.indexOf(h) === -1) extraHeaders.push(h); }));
+      const headers = baseHeaders.concat(extraHeaders);
+      if (headers.length > 0) {
         const rows = [headers];
         
-        dataArray.forEach(item => {
+        (dataArray || []).forEach(item => {
           const row = headers.map(h => {
              let val = item[h];
+             if (h === 'createdAt') return normalizeDateTimeForSheet_(val);
              // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
-             return val;
+             return val === undefined ? '' : val;
           });
           rows.push(row);
         });
