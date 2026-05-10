@@ -200,6 +200,26 @@
                                             <p class="text-xs text-gray-500">Realisasi rekening</p>
                                             <p class="text-2xl font-black text-amber-700">Rp {{ formatNumber(totalRealisasiRekening) }}</p>
                                         </div>
+                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
+                                            <p class="text-xs text-gray-500">Master jabatan</p>
+                                            <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -298,7 +318,25 @@
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.kriteria }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.uangHarian) }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.penginapan) }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
-                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tujuan }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'pertimbangan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.dasar_pertimbangan }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -1037,6 +1075,46 @@
                 },
                 getRekeningRealisasi(rekeningId) {
                     return this.db.sppd.filter(item => String(item.rekeningId) === String(rekeningId)).reduce((sum, item) => sum + this.parseCurrencyNumber(item.nilai_sppd || 0), 0);
+                },
+                normalizeDateValue(value) {
+                    if (!value) return '';
+                    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+                    const text = String(value).trim();
+                    if (!text || text === '-') return '';
+                    const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+                    const localMatch = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+                    if (localMatch) return `${localMatch[3]}-${String(localMatch[2]).padStart(2, '0')}-${String(localMatch[1]).padStart(2, '0')}`;
+                    const parsed = new Date(text);
+                    return Number.isNaN(parsed.getTime()) ? text : parsed.toISOString().slice(0, 10);
+                },
+                formatDisplayDate(value) {
+                    const normalized = this.normalizeDateValue(value);
+                    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (!match) return value || '';
+                    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                    const monthIndex = Number(match[2]) - 1;
+                    if (monthIndex < 0 || monthIndex > 11) return value || '';
+                    return `${match[3]} ${months[monthIndex]} ${match[1]}`;
+                },
+                normalizeDateTimeValue(value) {
+                    if (!value) return '';
+                    const pad = number => String(number).padStart(2, '0');
+                    const fromDate = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+                    if (value instanceof Date && !Number.isNaN(value.getTime())) return fromDate(value);
+                    const text = String(value).trim();
+                    if (!text || text === '-') return '';
+                    const normalizedText = text.replace('T', ' ').replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
+                    const match = normalizedText.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+                    if (match) return `${match[1]}-${match[2]}-${match[3]} ${match[4] || '00'}:${match[5] || '00'}:${match[6] || '00'}`;
+                    const parsed = new Date(text);
+                    return Number.isNaN(parsed.getTime()) ? text : fromDate(parsed);
+                },
+                formatDateTimeDisplay(value) {
+                    const normalized = this.normalizeDateTimeValue(value);
+                    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+                    if (!match) return normalized || '-';
+                    return `${match[3]}-${match[2]}-${match[1]} ${match[4]}:${match[5]}`;
                 },
                 normalizeDateValue(value) {
                     if (!value) return '';
