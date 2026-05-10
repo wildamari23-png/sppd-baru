@@ -299,12 +299,12 @@ function styleSptEmployeeTable_(table) {
   table.setBorderWidth(0);
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-    row.getCell(0).setWidth(28);
-    row.getCell(1).setWidth(130);
-    row.getCell(2).setWidth(18);
-    row.getCell(3).setWidth(360);
+    row.getCell(0).setWidth(18);
+    row.getCell(1).setWidth(88);
+    row.getCell(2).setWidth(10);
+    row.getCell(3).setWidth(430);
     for (let c = 0; c < row.getNumCells(); c++) {
-      row.getCell(c).setPaddingTop(1).setPaddingBottom(1).setPaddingLeft(2).setPaddingRight(2);
+      row.getCell(c).setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(1).setPaddingRight(1);
     }
   }
 }
