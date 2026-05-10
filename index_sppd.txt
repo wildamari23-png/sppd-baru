@@ -161,12 +161,13 @@
                         <!-- VIEW: DASHBOARD -->
                         <div v-if="currentView === 'dashboard'" key="dashboard" class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                                <div v-for="metric in dashboardMetrics" :key="metric.title" :class="['metric-card rounded-2xl p-6 text-white', metric.gradient]">
+                                <div v-for="metric in dashboardMetrics" :key="metric.title" @click="metric.action === 'rekening' && showRekeningRealisasiDialog()" :class="['metric-card rounded-2xl p-6 text-white', metric.gradient, metric.action ? 'cursor-pointer' : '']">
                                     <div class="relative z-10 flex items-start justify-between gap-4">
                                         <div>
                                             <p class="text-sm font-semibold uppercase tracking-wider text-white/75">{{ metric.title }}</p>
                                             <p class="text-4xl font-extrabold mt-3 drop-shadow">{{ metric.value }}</p>
                                             <p class="text-sm text-white/85 mt-3 leading-relaxed">{{ metric.caption }}</p>
+                                            <p v-if="metric.action" class="text-[11px] font-bold mt-2 text-white/80"><i class="fas fa-chart-pie mr-1"></i>Klik untuk detail realisasi</p>
                                         </div>
                                         <div class="metric-icon h-14 w-14 rounded-2xl bg-white/20 border border-white/25 flex items-center justify-center shrink-0">
                                             <i :class="[metric.icon, 'text-2xl']"></i>
@@ -196,13 +197,21 @@
                                             <p class="text-2xl font-black text-blue-700">{{ activeTrips }}</p>
                                         </div>
                                         <div class="p-4 rounded-xl bg-white border border-amber-100">
-                                            <p class="text-xs text-gray-500">Master jabatan</p>
-                                            <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
+                                            <p class="text-xs text-gray-500">Realisasi rekening</p>
+                                            <p class="text-2xl font-black text-amber-700">Rp {{ formatNumber(totalRealisasiRekening) }}</p>
                                         </div>
                                         <div class="p-4 rounded-xl bg-white border border-amber-100">
                                             <p class="text-xs text-gray-500">Master jabatan</p>
                                             <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -278,7 +287,7 @@
                                                 <th class="px-6 py-3">ID</th><th class="px-6 py-3">Nama Jabatan</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
                                             <tr v-else-if="currentView === 'rekening'">
-                                                <th class="px-6 py-3">Kegiatan</th><th class="px-6 py-3">Sub Kegiatan</th><th class="px-6 py-3">Objek Belanja</th><th class="px-6 py-3">Sumber Dana</th><th class="px-6 py-3 text-right">Aksi</th>
+                                                <th class="px-6 py-3">Kegiatan</th><th class="px-6 py-3">Sub Kegiatan</th><th class="px-6 py-3">Objek Belanja</th><th class="px-6 py-3">Sumber Dana</th><th class="px-6 py-3">Pagu</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
                                             <tr v-else-if="currentView === 'shs'">
                                                 <th class="px-6 py-3">Golongan / Kriteria</th><th class="px-6 py-3">Uang Harian</th><th class="px-6 py-3">Penginapan</th><th class="px-6 py-3 text-right">Aksi</th>
@@ -303,7 +312,7 @@
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.jabatan }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'rekening'">
-                                                    <td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_kegiatan }}</span><br><span class="text-gray-600">{{ item.nama_kegiatan }}</span></td><td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_sub_kegiatan }}</span><br><span class="text-gray-600">{{ item.nama_sub_Kegiatan }}</span></td><td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_objek_belanja }}</span><br><span class="text-gray-600">{{ item.nama_objek_belanja }}</span></td><td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ item.sumberDana }}</span></td>
+                                                    <td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_kegiatan }}</span><br><span class="text-gray-600">{{ item.nama_kegiatan }}</span></td><td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_sub_kegiatan }}</span><br><span class="text-gray-600">{{ item.nama_sub_Kegiatan }}</span></td><td class="px-6 py-4"><span class="font-semibold text-gray-900">{{ item.kode_rek_objek_belanja }}</span><br><span class="text-gray-600">{{ item.nama_objek_belanja }}</span></td><td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ item.sumberDana }}</span></td><td class="px-6 py-4 font-semibold text-gray-800">Rp {{ formatNumber(item.pagu_dana || 0) }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'shs'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.kriteria }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.uangHarian) }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.penginapan) }}</td>
@@ -322,6 +331,12 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'pertimbangan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.dasar_pertimbangan }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -424,6 +439,12 @@
                                                 {{ selectedRekening.kode_rek_kegiatan }} {{ selectedRekening.nama_kegiatan }} &raquo;
                                                 {{ selectedRekening.kode_rek_sub_kegiatan }} {{ selectedRekening.nama_sub_Kegiatan }} &raquo;
                                                 {{ selectedRekening.kode_rek_objek_belanja }} {{ selectedRekening.nama_objek_belanja }}
+                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3">
+                                                    <div class="rounded-lg bg-slate-50 border border-slate-100 p-2"><p class="text-[10px] uppercase font-bold text-slate-500">Pagu</p><p class="font-black text-slate-800">Rp {{ formatNumber(selectedRekeningPagu) }}</p></div>
+                                                    <div class="rounded-lg bg-blue-50 border border-blue-100 p-2"><p class="text-[10px] uppercase font-bold text-blue-500">Realisasi</p><p class="font-black text-blue-700">Rp {{ formatNumber(selectedRekeningRealisasi) }}</p></div>
+                                                    <div class="rounded-lg bg-emerald-50 border border-emerald-100 p-2"><p class="text-[10px] uppercase font-bold text-emerald-500">Nilai SPPD</p><p class="font-black text-emerald-700">Rp {{ formatNumber(currentNilaiSppd) }}</p></div>
+                                                    <div :class="['rounded-lg border p-2', selectedRekeningSisaAfter >= 0 ? 'bg-teal-50 border-teal-100' : 'bg-red-50 border-red-100']"><p class="text-[10px] uppercase font-bold" :class="selectedRekeningSisaAfter >= 0 ? 'text-teal-500' : 'text-red-500'">Sisa Setelah SPPD</p><p class="font-black" :class="selectedRekeningSisaAfter >= 0 ? 'text-teal-700' : 'text-red-700'">Rp {{ formatNumber(selectedRekeningSisaAfter) }}</p></div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="md:col-span-2">
@@ -766,6 +787,7 @@
                                 <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening Sub Kegiatan</label><input v-model="modalForm.kode_rek_sub_kegiatan" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                                 <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Objek Belanja</label><input v-model="modalForm.nama_objek_belanja" required type="text" placeholder="Belanja Perjalanan Dinas Dalam Kota" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                                 <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Rekening Objek Belanja</label><input v-model="modalForm.kode_rek_objek_belanja" required type="text" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                                <div><label class="block text-sm font-medium text-gray-700 mb-1">Pagu Dana (Rp)</label><input v-model.number="modalForm.pagu_dana" required type="number" min="0" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                             </div>
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Sumber Dana</label>
                                 <select v-model="modalForm.sumberDana" required class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500">
@@ -878,7 +900,7 @@
                     golonganOptions: ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'],
                     shsKriteriaOptions: ['Golongan I', 'Golongan II', 'Golongan III', 'Golongan IV', 'Pejabat Eselon IV', 'Pejabat Eselon III', 'Pejabat Eselon II', 'Non ASN / Tenaga Kontrak'],
                     formSppd: {
-                        nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', dasar_pertimbangan: '', maksud: '', tempatBerangkatId: '', lokasiId: '',
+                        nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', dasar_pertimbangan: '', maksud: '', nilai_sppd: 0, tempatBerangkatId: '', lokasiId: '',
                         tglBerangkat: '', tglKembali: '', lamaHari: 0,
                         pegawaiUtama: '', pengikut: []
                     },
@@ -927,6 +949,21 @@
                 selectedRekening() {
                     return this.db.rekening.find(r => String(r.id) === String(this.formSppd.rekeningId)) || null;
                 },
+                selectedRekeningPagu() {
+                    return this.parseCurrencyNumber(this.selectedRekening?.pagu_dana || 0);
+                },
+                selectedRekeningRealisasi() {
+                    return this.getRekeningRealisasi(this.formSppd.rekeningId);
+                },
+                currentNilaiSppd() {
+                    return this.calculateNilaiSppd(this.formSppd);
+                },
+                selectedRekeningSisaAfter() {
+                    return this.selectedRekeningPagu - this.selectedRekeningRealisasi - this.currentNilaiSppd;
+                },
+                totalRealisasiRekening() {
+                    return this.db.sppd.reduce((sum, item) => sum + this.parseCurrencyNumber(item.nilai_sppd || 0), 0);
+                },
                 sppdThisMonth() {
                     const now = new Date();
                     return this.db.sppd.filter(s => { const d = new Date(s.tglBerangkat || s.createdAt); return !Number.isNaN(d.getTime()) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
@@ -939,7 +976,7 @@
                     return [
                         { title: 'Total Pegawai', value: this.db.pegawai.length, caption: 'ASN/pegawai siap ditugaskan', icon: 'fas fa-users', gradient: 'bg-gradient-to-br from-teal-500 to-emerald-700', progress: Math.min(100, this.db.pegawai.length * 8) },
                         { title: 'Total SPT/SPD', value: this.db.sppd.length, caption: `${this.sppdThisMonth.length} perjalanan bulan ini`, icon: 'fas fa-paper-plane', gradient: 'bg-gradient-to-br from-blue-500 to-indigo-700', progress: Math.min(100, this.db.sppd.length * 10) },
-                        { title: 'Objek Rekening', value: this.db.rekening.length, caption: 'Kegiatan, sub, dan objek belanja', icon: 'fas fa-wallet', gradient: 'bg-gradient-to-br from-orange-500 to-amber-700', progress: Math.min(100, this.db.rekening.length * 12) },
+                        { title: 'Objek Rekening', value: this.db.rekening.length, caption: 'Klik untuk realisasi pagu dan sumber dana', icon: 'fas fa-wallet', gradient: 'bg-gradient-to-br from-orange-500 to-amber-700', progress: Math.min(100, this.db.rekening.length * 12), action: 'rekening' },
                         { title: 'Perjalanan Aktif', value: this.activeTrips, caption: 'Sedang berlangsung hari ini', icon: 'fas fa-route', gradient: 'bg-gradient-to-br from-fuchsia-500 to-rose-700', progress: Math.min(100, Math.max(12, this.activeTrips * 25)) }
                     ];
                 },
@@ -1020,7 +1057,64 @@
                     return menu ? menu.name : 'Aplikasi SPPD';
                 },
                 formatNumber(num) {
-                    return Number(num).toLocaleString('id-ID');
+                    return Number(num || 0).toLocaleString('id-ID');
+                },
+                parseCurrencyNumber(value) {
+                    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+                    const cleaned = String(value || '0').replace(/[^0-9,-]/g, '').replace(',', '.');
+                    const parsed = Number(cleaned);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                },
+                calculateNilaiSppd(sppdData = this.formSppd) {
+                    const lokasi = this.db.lokasi.find(l => String(l.id) === String(sppdData.lokasiId)) || {};
+                    const tarifUH = this.parseCurrencyNumber((this.db.shs[0] || {}).uangHarian || 0);
+                    const transport = this.parseCurrencyNumber(lokasi.transport || 0);
+                    const lamaHari = this.parseCurrencyNumber(sppdData.lamaHari || 0);
+                    const totalOrang = (sppdData.pegawaiUtama ? 1 : 0) + ((sppdData.pengikut || []).filter(p => p.pegawaiId).length);
+                    return (tarifUH * lamaHari * totalOrang) + (transport * totalOrang);
+                },
+                getRekeningRealisasi(rekeningId) {
+                    return this.db.sppd.filter(item => String(item.rekeningId) === String(rekeningId)).reduce((sum, item) => sum + this.parseCurrencyNumber(item.nilai_sppd || 0), 0);
+                },
+                normalizeDateValue(value) {
+                    if (!value) return '';
+                    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+                    const text = String(value).trim();
+                    if (!text || text === '-') return '';
+                    const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+                    const localMatch = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+                    if (localMatch) return `${localMatch[3]}-${String(localMatch[2]).padStart(2, '0')}-${String(localMatch[1]).padStart(2, '0')}`;
+                    const parsed = new Date(text);
+                    return Number.isNaN(parsed.getTime()) ? text : parsed.toISOString().slice(0, 10);
+                },
+                formatDisplayDate(value) {
+                    const normalized = this.normalizeDateValue(value);
+                    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (!match) return value || '';
+                    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                    const monthIndex = Number(match[2]) - 1;
+                    if (monthIndex < 0 || monthIndex > 11) return value || '';
+                    return `${match[3]} ${months[monthIndex]} ${match[1]}`;
+                },
+                normalizeDateTimeValue(value) {
+                    if (!value) return '';
+                    const pad = number => String(number).padStart(2, '0');
+                    const fromDate = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+                    if (value instanceof Date && !Number.isNaN(value.getTime())) return fromDate(value);
+                    const text = String(value).trim();
+                    if (!text || text === '-') return '';
+                    const normalizedText = text.replace('T', ' ').replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
+                    const match = normalizedText.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+                    if (match) return `${match[1]}-${match[2]}-${match[3]} ${match[4] || '00'}:${match[5] || '00'}:${match[6] || '00'}`;
+                    const parsed = new Date(text);
+                    return Number.isNaN(parsed.getTime()) ? text : fromDate(parsed);
+                },
+                formatDateTimeDisplay(value) {
+                    const normalized = this.normalizeDateTimeValue(value);
+                    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+                    if (!match) return normalized || '-';
+                    return `${match[3]}-${match[2]}-${match[1]} ${match[4]}:${match[5]}`;
                 },
                 normalizeDateValue(value) {
                     if (!value) return '';
@@ -1071,7 +1165,7 @@
                         // Insert Default Dummy Data for first load to make app informative
                         this.db.jabatan.push({id: 'J1', jabatan: 'Perawat Penyelia'}, {id: 'J2', jabatan: 'Bidan'}, {id: 'J3', jabatan: 'Dokter Umum'});
                         this.db.pegawai.push({id: Date.now().toString(), nip: '19800101 200501 1 001', nama: 'Budi Santoso, S.Kep', pangkat: 'Penata Muda', golongan: 'III/a', jabatan: 'Perawat Penyelia'});
-                        this.db.rekening.push({id: 'R1', nama_kegiatan: 'Pelayanan Kesehatan Primer', kode_rek_kegiatan: '1.02.01.2.01', nama_sub_Kegiatan: 'Kunjungan Lapangan', kode_rek_sub_kegiatan: '1.02.01.2.01.0001', sumberDana: 'BOK', kode_rek_objek_belanja: '5.1.02.04.01.0001', nama_objek_belanja: 'Belanja Perjalanan Dinas Dalam Daerah'});
+                        this.db.rekening.push({id: 'R1', nama_kegiatan: 'Pelayanan Kesehatan Primer', kode_rek_kegiatan: '1.02.01.2.01', nama_sub_Kegiatan: 'Kunjungan Lapangan', kode_rek_sub_kegiatan: '1.02.01.2.01.0001', sumberDana: 'BOK', kode_rek_objek_belanja: '5.1.02.04.01.0001', nama_objek_belanja: 'Belanja Perjalanan Dinas Dalam Daerah', pagu_dana: 10000000});
                         this.db.shs.push({id: 'S1', kriteria: 'Golongan III', uangHarian: 150000, penginapan: 300000});
                         this.db.lokasi.push({id: 'L1', tujuan: 'Dinas Kesehatan Kab. Sintang', jarak: 5, transport: 50000});
                         this.db.tempatBerangkat.push({id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default'});
@@ -1119,7 +1213,8 @@
                         nama_sub_Kegiatan: item.nama_sub_Kegiatan || item.nama_sub_kegiatan || item.subKegiatan || '',
                         kode_rek_sub_kegiatan: item.kode_rek_sub_kegiatan || '',
                         kode_rek_objek_belanja: item.kode_rek_objek_belanja || item.kode || '',
-                        nama_objek_belanja: item.nama_objek_belanja || item.objek || ''
+                        nama_objek_belanja: item.nama_objek_belanja || item.objek || '',
+                        pagu_dana: this.parseCurrencyNumber(item.pagu_dana || item.paguDana || item.pagu || item.Pagu || item['Pagu Dana'] || 0)
                     }));
                     this.db.lokasi = this.db.lokasi.map((item, index) => {
                         const values = Object.values(item || {});
@@ -1133,10 +1228,17 @@
                     });
                     this.db.pertimbangan = this.db.pertimbangan.map((item, index) => {
                         const values = Object.values(item || {});
+                        let id = item.id || item.ID || item.Id || values[0] || `P${index + 1}`;
+                        let dasarPertimbangan = item.dasar_pertimbangan || item.dasarPertimbangan || item.pertimbangan || item.Pertimbangan || item['Dasar Pertimbangan'] || values[1] || '';
+                        if (/^P\d+$/i.test(String(dasarPertimbangan).trim()) && String(id || '').length > 8) {
+                            const swappedId = dasarPertimbangan;
+                            dasarPertimbangan = id;
+                            id = swappedId;
+                        }
                         return {
                             ...item,
-                            id: values[0] || item.id || item.ID || item.Id || `P${index + 1}`,
-                            dasar_pertimbangan: values[1] || item.dasar_pertimbangan || item.dasarPertimbangan || item.pertimbangan || item.Pertimbangan || item['Dasar Pertimbangan'] || ''
+                            id,
+                            dasar_pertimbangan: dasarPertimbangan
                         };
                     }).filter(item => item.dasar_pertimbangan);
                     if (this.db.tempatBerangkat.length === 0) this.db.tempatBerangkat = [{ id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default' }];
@@ -1153,6 +1255,7 @@
                             tanggal_spd: this.normalizeDateValue(item.tanggal_spd || tglBerangkat),
                             tanggal_kwitansi: this.normalizeDateValue(item.tanggal_kwitansi || tglBerangkat),
                             dasar_pertimbangan: item.dasar_pertimbangan || item.dasarPertimbangan || '',
+                            nilai_sppd: this.parseCurrencyNumber(item.nilai_sppd || item.nilaiSppd || 0),
                             createdAt: this.normalizeDateTimeValue(item.createdAt),
                             tempatBerangkatId: item.tempatBerangkatId || (this.db.tempatBerangkat[0]?.id || ''),
                             rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
@@ -1381,7 +1484,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     }
                 },
                 resetFormSppd() {
-                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', dasar_pertimbangan: '', maksud: '', tempatBerangkatId: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', dasar_pertimbangan: '', maksud: '', nilai_sppd: 0, tempatBerangkatId: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
                     this.pegawaiSearchUtama = '';
                     this.pertimbanganSearch = '';
                     this.absensiStatus = {};
@@ -1418,8 +1521,12 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     if(this.formSppd.lamaHari <= 0) {
                         Swal.fire('Error', 'Tanggal kembali harus setelah atau sama dengan tanggal berangkat', 'error'); return;
                     }
+                    const nilaiSppd = this.calculateNilaiSppd(this.formSppd);
+                    if (this.selectedRekening && this.selectedRekeningPagu > 0 && (this.selectedRekeningRealisasi + nilaiSppd) > this.selectedRekeningPagu) {
+                        Swal.fire('Pagu tidak cukup', `Nilai SPPD Rp ${this.formatNumber(nilaiSppd)} melebihi sisa pagu Rp ${this.formatNumber(this.selectedRekeningPagu - this.selectedRekeningRealisasi)}.`, 'error'); return;
+                    }
                     this.refreshNomorSurat();
-                    const newSppd = { ...this.formSppd, pengikut: this.formSppd.pengikut.map(({ search, ...rest }) => rest), id: Date.now().toString(), createdAt: this.normalizeDateTimeValue(new Date()) };
+                    const newSppd = { ...this.formSppd, nilai_sppd: nilaiSppd, pengikut: this.formSppd.pengikut.map(({ search, ...rest }) => rest), id: Date.now().toString(), createdAt: this.normalizeDateTimeValue(new Date()) };
                     this.db.sppd.push(newSppd);
                     this.saveDB();
                     Swal.fire('Berhasil', 'Data SPPD tersimpan. Silahkan klik Cetak Dokumen.', 'success');
@@ -1458,7 +1565,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 exportExcelSPPD() {
                     let csvContent = "data:text/csv;charset=utf-8,";
-                    csvContent += "No SPT,No SPD,Tanggal SPT,Tanggal SPD,Tanggal Kwitansi,Pegawai Utama,Tempat Berangkat,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Dasar Pertimbangan,Maksud,Laporan Hasil\n";
+                    csvContent += "No SPT,No SPD,Tanggal SPT,Tanggal SPD,Tanggal Kwitansi,Pegawai Utama,Tempat Berangkat,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Nilai SPPD,Dasar Pertimbangan,Maksud,Laporan Hasil\n";
                     
                     this.db.sppd.forEach(row => {
                         const utama = this.getPegawaiName(row.pegawaiUtama);
@@ -1468,7 +1575,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
                         const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
                         
-                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${row.tanggal_spt || row.tglBerangkat}","${row.tanggal_spd || row.tglBerangkat}","${row.tanggal_kwitansi || row.tglBerangkat}","${utama}","${tempatBerangkat}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${dasar},${maksud},${laporan}`;
+                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${row.tanggal_spt || row.tglBerangkat}","${row.tanggal_spd || row.tglBerangkat}","${row.tanggal_kwitansi || row.tglBerangkat}","${utama}","${tempatBerangkat}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}","${row.nilai_sppd || 0}",${dasar},${maksud},${laporan}`;
                         csvContent += rowData + "\n";
                     });
                     
@@ -1508,6 +1615,37 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     Swal.fire({ icon: 'info', title: 'Template belum dibuat', text: 'Klik Generate Template terlebih dahulu.' });
                 },
 
+                showRekeningRealisasiDialog() {
+                    const rows = this.db.rekening.map(rek => {
+                        const pagu = this.parseCurrencyNumber(rek.pagu_dana || 0);
+                        const realisasi = this.getRekeningRealisasi(rek.id);
+                        return { ...rek, pagu, realisasi, sisa: pagu - realisasi };
+                    });
+                    const sumberDanaMap = {};
+                    rows.forEach(row => {
+                        const key = row.sumberDana || 'Tanpa Sumber Dana';
+                        if (!sumberDanaMap[key]) sumberDanaMap[key] = { pagu: 0, realisasi: 0 };
+                        sumberDanaMap[key].pagu += row.pagu;
+                        sumberDanaMap[key].realisasi += row.realisasi;
+                    });
+                    const sumberDanaHtml = Object.keys(sumberDanaMap).map(key => {
+                        const item = sumberDanaMap[key];
+                        const pct = item.pagu > 0 ? Math.min(100, Math.round((item.realisasi / item.pagu) * 100)) : 0;
+                        return `<div class="p-3 rounded-xl border border-slate-100 bg-white shadow-sm"><div class="flex justify-between text-xs font-bold text-slate-600"><span>${key}</span><span>${pct}%</span></div><div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full bg-gradient-to-r from-teal-500 to-blue-500" style="width:${pct}%"></div></div><div class="mt-2 text-[11px] text-slate-500">Rp ${this.formatNumber(item.realisasi)} / Rp ${this.formatNumber(item.pagu)}</div></div>`;
+                    }).join('') || '<div class="text-sm text-slate-500">Belum ada sumber dana.</div>';
+                    const rekeningHtml = rows.map(row => {
+                        const pct = row.pagu > 0 ? Math.min(100, Math.round((row.realisasi / row.pagu) * 100)) : 0;
+                        const sisaClass = row.sisa >= 0 ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50';
+                        return `<tr><td class="py-3 pr-3"><div class="font-bold text-slate-800">${row.kode_rek_objek_belanja || row.kode_rek_kegiatan || '-'}</div><div class="text-xs text-slate-500">${row.nama_objek_belanja || row.nama_kegiatan || '-'}</div><div class="text-[11px] text-blue-600 font-bold">${row.sumberDana || '-'}</div></td><td class="py-3 text-right">Rp ${this.formatNumber(row.pagu)}</td><td class="py-3 text-right">Rp ${this.formatNumber(row.realisasi)}</td><td class="py-3 text-right"><span class="px-2 py-1 rounded-full text-xs font-bold ${sisaClass}">Rp ${this.formatNumber(row.sisa)}</span><div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full bg-gradient-to-r from-amber-400 to-orange-500" style="width:${pct}%"></div></div></td></tr>`;
+                    }).join('') || '<tr><td colspan="4" class="py-6 text-center text-slate-500">Belum ada rekening.</td></tr>';
+                    Swal.fire({
+                        title: 'Realisasi Objek Rekening',
+                        width: 980,
+                        html: `<div class="text-left space-y-4"><div class="grid grid-cols-1 md:grid-cols-3 gap-3">${sumberDanaHtml}</div><div class="max-h-[420px] overflow-auto rounded-2xl border border-slate-100"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-50 text-slate-600"><tr><th class="py-3 px-3 text-left">Rekening</th><th class="py-3 text-right">Pagu</th><th class="py-3 text-right">Realisasi</th><th class="py-3 pr-3 text-right">Sisa</th></tr></thead><tbody class="divide-y divide-slate-100">${rekeningHtml}</tbody></table></div></div>`,
+                        confirmButtonText: 'Tutup'
+                    });
+                },
+
                 generateGoogleSheets() {
                     if (!this.isGAS) {
                         Swal.fire('Mode Lokal', 'Aplikasi saat ini berjalan di mode lokal (bukan Apps Script). Jika ingin menghubungkan ke Google Sheets, jalankan aplikasi ini dari URL Deployment Apps Script.', 'info');
@@ -1525,7 +1663,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             this.isSyncing = true;
                             // Inject dummy data structure minimally if entirely empty so headers generate
                             if (this.db.sppd.length === 0) {
-                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', tanggal_spt: '-', tanggal_spd: '-', tanggal_kwitansi: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', dasar_pertimbangan: '-', maksud: '-', tempatBerangkatId: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
+                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', tanggal_spt: '-', tanggal_spd: '-', tanggal_kwitansi: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', dasar_pertimbangan: '-', maksud: '-', nilai_sppd: 0, tempatBerangkatId: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
                             }
                             
                             google.script.run

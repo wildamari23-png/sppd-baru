@@ -277,7 +277,7 @@ function buildTemplateData_(sppd, db, settings) {
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
     TRANSPORT: formatNumber_(transport),
-    TOTAL_BIAYA: formatNumber_(total),
+    TOTAL_BIAYA: formatNumber_(Number(sppd.nilai_sppd || total)),
     LAPORAN_HASIL: sppd.laporanHasil || 'Belum ada uraian laporan kegiatan yang diinput.'
   };
 }
@@ -351,12 +351,12 @@ function saveDatabase(dbPayload, settingsPayload) {
       const defaultHeaders = {
         pegawai: ['id', 'nip', 'nama', 'pangkat', 'golongan', 'jabatan'],
         jabatan: ['id', 'jabatan'],
-        rekening: ['id', 'nama_kegiatan', 'kode_rek_kegiatan', 'nama_sub_Kegiatan', 'kode_rek_sub_kegiatan', 'sumberDana', 'kode_rek_objek_belanja', 'nama_objek_belanja'],
+        rekening: ['id', 'nama_kegiatan', 'kode_rek_kegiatan', 'nama_sub_Kegiatan', 'kode_rek_sub_kegiatan', 'sumberDana', 'kode_rek_objek_belanja', 'nama_objek_belanja', 'pagu_dana'],
         shs: ['id', 'kriteria', 'uangHarian', 'penginapan'],
         lokasi: ['id', 'tujuan', 'jarak', 'transport'],
         tempatBerangkat: ['id', 'tempat', 'keterangan'],
         pertimbangan: ['id', 'dasar_pertimbangan'],
-        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'tempatBerangkatId', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'tanggal_spt', 'tanggal_spd', 'tanggal_kwitansi', 'laporanHasil', 'createdAt', 'dasar_pertimbangan']
+        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'tempatBerangkatId', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'tanggal_spt', 'tanggal_spd', 'tanggal_kwitansi', 'laporanHasil', 'createdAt', 'dasar_pertimbangan', 'nilai_sppd']
       };
       const baseHeaders = defaultHeaders[key] || (dataArray && dataArray.length > 0 ? Object.keys(dataArray[0]) : []);
       const extraHeaders = [];
