@@ -234,8 +234,8 @@ function appendBodyElements_(targetBody, sourceBody) {
       targetBody.appendHorizontalRule();
     } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
       targetBody.appendPageBreak();
-    } else {
-      targetBody.appendParagraph(child.getText ? child.getText() : '');
+    } else if (child.getText && child.getText()) {
+      targetBody.appendParagraph(child.getText());
     }
   }
 }
@@ -285,7 +285,8 @@ function replaceSptPlaceholderInCell_(cell, placeholder, rows) {
     if (type === DocumentApp.ElementType.PARAGRAPH) {
       const paragraph = child.asParagraph();
       if (paragraph.getText().indexOf(placeholder) === -1) continue;
-      paragraph.setText(paragraph.getText().split(placeholder).join(''));
+      const remainingText = paragraph.getText().split(placeholder).join('').trim();
+      paragraph.setText(remainingText || '\u00A0');
       const nestedTable = cell.appendTable(rows);
       styleSptEmployeeTable_(nestedTable);
     } else if (type === DocumentApp.ElementType.TABLE) {
@@ -312,11 +313,16 @@ function buildSptEmployeeRows_(people) {
   const rows = [];
   (people.length ? people : [{}]).forEach((p, index) => {
     const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
-    rows.push([String(index + 1) + '.', 'Nama', ':', p.nama || '-']);
-    rows.push(['', 'Pangkat/Golongan', ':', pangkatGol || '-']);
-    rows.push(['', 'Jabatan', ':', p.jabatan || '-']);
+    rows.push([safeCellText_(String(index + 1) + '.'), 'Nama', ':', safeCellText_(p.nama || '-')]);
+    rows.push([safeCellText_(' '), 'Pangkat/Golongan', ':', safeCellText_(pangkatGol || '-')]);
+    rows.push([safeCellText_(' '), 'Jabatan', ':', safeCellText_(p.jabatan || '-')]);
   });
   return rows;
+}
+
+function safeCellText_(value) {
+  const text = String(value === undefined || value === null ? '' : value);
+  return text.trim() ? text : '\u00A0';
 }
 
 function applyDocumentLayout_(doc, options) {
