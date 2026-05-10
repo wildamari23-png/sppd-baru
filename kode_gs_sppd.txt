@@ -251,6 +251,8 @@ function appendBodyElements_(targetBody, sourceBody) {
       appendSafeParagraph_(targetBody, copy.asParagraph());
     } else if (type === DocumentApp.ElementType.TABLE) {
       targetBody.appendTable(copy.asTable());
+    } else if (type === DocumentApp.ElementType.INLINE_IMAGE) {
+      targetBody.appendImage(copy.asInlineImage());
     } else if (type === DocumentApp.ElementType.LIST_ITEM) {
       appendSafeListItem_(targetBody, copy.asListItem());
     } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
@@ -271,9 +273,52 @@ function normalizeDocumentText_(value) {
 function appendSafeParagraph_(body, paragraphOrText) {
   if (paragraphOrText && paragraphOrText.getType && paragraphOrText.getType() === DocumentApp.ElementType.PARAGRAPH) {
     const paragraph = paragraphOrText.asParagraph();
-    return paragraph.getText() ? body.appendParagraph(paragraph) : body.appendParagraph('\u00A0');
+    const appended = paragraph.getText() ? body.appendParagraph(paragraph) : body.appendParagraph('\u00A0');
+    copyParagraphImages_(paragraph, appended);
+    return appended;
   }
   return body.appendParagraph(normalizeDocumentText_(paragraphOrText));
+}
+
+function copyParagraphImages_(sourceParagraph, targetParagraph) {
+  copyInlineImages_(sourceParagraph, targetParagraph);
+  copyPositionedImages_(sourceParagraph, targetParagraph);
+}
+
+function copyInlineImages_(sourceParagraph, targetParagraph) {
+  if (paragraphHasInlineImage_(targetParagraph)) return;
+  for (let i = 0; i < sourceParagraph.getNumChildren(); i++) {
+    const child = sourceParagraph.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.INLINE_IMAGE) continue;
+    try {
+      const sourceImage = child.asInlineImage();
+      const copiedImage = targetParagraph.appendInlineImage(sourceImage.getBlob());
+      copiedImage.setWidth(sourceImage.getWidth()).setHeight(sourceImage.getHeight());
+    } catch (error) {
+      console.error('Gagal menyalin inline image template: ' + error.message);
+    }
+  }
+}
+
+function paragraphHasInlineImage_(paragraph) {
+  for (let i = 0; i < paragraph.getNumChildren(); i++) {
+    if (paragraph.getChild(i).getType() === DocumentApp.ElementType.INLINE_IMAGE) return true;
+  }
+  return false;
+}
+
+function copyPositionedImages_(sourceParagraph, targetParagraph) {
+  try {
+    const images = sourceParagraph.getPositionedImages ? sourceParagraph.getPositionedImages() : [];
+    images.forEach(sourceImage => {
+      const copiedImage = targetParagraph.addPositionedImage(sourceImage.getBlob());
+      copiedImage.setWidth(sourceImage.getWidth()).setHeight(sourceImage.getHeight());
+      if (copiedImage.setTopOffset && sourceImage.getTopOffset) copiedImage.setTopOffset(sourceImage.getTopOffset());
+      if (copiedImage.setLeftOffset && sourceImage.getLeftOffset) copiedImage.setLeftOffset(sourceImage.getLeftOffset());
+    });
+  } catch (error) {
+    console.error('Gagal menyalin positioned image template: ' + error.message);
+  }
 }
 
 function appendSafeListItem_(body, listItem) {
@@ -381,8 +426,8 @@ function insertSpdEmployeeTable_(body, people) {
 function buildSpdEmployeeRows_(people) {
   const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
   const rows = [[
-    '\u00A0',
     'NAMA / NIP',
+    '\u00A0',
     'PANGKAT / GOL.',
     'JABATAN',
     'NOMOR SPD'
@@ -404,15 +449,12 @@ function styleSpdEmployeeTable_(table) {
   table.setBorderWidth(0.5);
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-    row.getCell(0).setWidth(22);
-    row.getCell(1).setWidth(170);
-    row.getCell(2).setWidth(105);
-    row.getCell(3).setWidth(130);
-    row.getCell(4).setWidth(128);
+    const widths = r === 0 ? [165, 85, 115, 110] : [20, 145, 85, 115, 110];
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
-      cell.setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(2).setPaddingRight(2);
-      cell.editAsText().setFontSize(8);
+      if (widths[c]) cell.setWidth(widths[c]);
+      cell.setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(1).setPaddingRight(1);
+      cell.editAsText().setFontSize(7);
       if (r === 0) cell.editAsText().setBold(true);
       for (let i = 0; i < cell.getNumChildren(); i++) {
         const child = cell.getChild(i);
@@ -420,6 +462,9 @@ function styleSpdEmployeeTable_(table) {
           child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
         }
       }
+    }
+    if (r === 0 && row.getNumCells() > 1) {
+      try { row.getCell(1).merge(); } catch (error) { console.error('Gagal merge header nama SPD: ' + error.message); }
     }
   }
 }
