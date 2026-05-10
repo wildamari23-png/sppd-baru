@@ -199,34 +199,6 @@
                                             <p class="text-xs text-gray-500">Master jabatan</p>
                                             <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
-                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
-                                            <p class="text-xs text-gray-500">Master jabatan</p>
-                                            <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modern-card rounded-2xl p-5">
-                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
-                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
-                                    <div class="space-y-2 text-sm">
-                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
-                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
-                                    </div>
-                                </div>
-                                <div class="modern-card rounded-2xl p-5">
-                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
-                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
-                                    <div class="space-y-2 text-sm">
-                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
-                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
-                                    </div>
-                                </div>
-                                <div class="modern-card rounded-2xl p-5">
-                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
-                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
-                                    <div class="space-y-2 text-sm">
-                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
-                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -323,6 +295,9 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -560,7 +535,12 @@
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in db.sppd" :key="item.id" class="border-b hover:bg-gray-50">
-                                                <td class="px-6 py-4 font-medium">{{ item.nomorSpt || item.nomor }}</td>
+                                                <td class="px-6 py-4 font-medium">
+                                                    <div>{{ item.nomorSpt || item.nomor }}</div>
+                                                    <span v-if="item.createdAt" class="inline-flex items-center mt-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 border border-slate-200">
+                                                        <i class="fas fa-clock mr-1 text-slate-400"></i>{{ formatDateTimeDisplay(item.createdAt) }}
+                                                    </span>
+                                                </td>
                                                 <td class="px-6 py-4 font-medium text-emerald-700">{{ item.nomorSpd || item.nomor }}</td>
                                                 <td class="px-6 py-4">{{ getPegawaiName(item.pegawaiUtama) }}<br><span v-if="item.pengikut.length" class="text-xs text-teal-600">+{{item.pengikut.length}} Pengikut</span></td>
                                                 <td class="px-6 py-4 truncate max-w-xs" :title="item.maksud">{{ item.maksud }}</td>
@@ -1011,6 +991,25 @@
                     if (monthIndex < 0 || monthIndex > 11) return value || '';
                     return `${match[3]} ${months[monthIndex]} ${match[1]}`;
                 },
+                normalizeDateTimeValue(value) {
+                    if (!value) return '';
+                    const pad = number => String(number).padStart(2, '0');
+                    const fromDate = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+                    if (value instanceof Date && !Number.isNaN(value.getTime())) return fromDate(value);
+                    const text = String(value).trim();
+                    if (!text || text === '-') return '';
+                    const normalizedText = text.replace('T', ' ').replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
+                    const match = normalizedText.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+                    if (match) return `${match[1]}-${match[2]}-${match[3]} ${match[4] || '00'}:${match[5] || '00'}:${match[6] || '00'}`;
+                    const parsed = new Date(text);
+                    return Number.isNaN(parsed.getTime()) ? text : fromDate(parsed);
+                },
+                formatDateTimeDisplay(value) {
+                    const normalized = this.normalizeDateTimeValue(value);
+                    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+                    if (!match) return normalized || '-';
+                    return `${match[3]}-${match[2]}-${match[1]} ${match[4]}:${match[5]}`;
+                },
                 initLocalDB() {
                     const localData = localStorage.getItem('sppd_db');
                     if (localData) {
@@ -1069,11 +1068,17 @@
                         kode_rek_objek_belanja: item.kode_rek_objek_belanja || item.kode || '',
                         nama_objek_belanja: item.nama_objek_belanja || item.objek || ''
                     }));
-                    this.db.lokasi = this.db.lokasi.map((item, index) => ({
-                        ...item,
-                        id: item.id || `L${index + 1}`,
-                        tujuan: item.tujuan || item.lokasi || item.nama_lokasi || item.tujuan_lokasi || item.tempat_tujuan || item.daerah_tujuan || '-'
-                    }));
+                    this.db.lokasi = this.db.lokasi.map((item, index) => {
+                        const values = Object.values(item || {});
+                        const tujuanKolomB = values.length > 1 ? values[1] : '';
+                        return {
+                            ...item,
+                            id: item.id || item.ID || item.Id || `L${index + 1}`,
+                            tujuan: item.tujuan || item.Tujuan || item.lokasi || item.Lokasi || item.nama_lokasi || item.namaLokasi || item['Nama Lokasi'] || item.tujuan_lokasi || item['Lokasi Tujuan'] || item.tempat_tujuan || item.daerah_tujuan || tujuanKolomB || '-',
+                            jarak: item.jarak || item.Jarak || item['Jarak (KM)'] || values[2] || '',
+                            transport: item.transport || item.Transport || item['Est. Transport'] || item['Estimasi Transport'] || values[3] || ''
+                        };
+                    });
                     if (this.db.tempatBerangkat.length === 0) this.db.tempatBerangkat = [{ id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default' }];
                     this.db.sppd = this.db.sppd.map((item, index) => {
                         const tglBerangkat = this.normalizeDateValue(item.tglBerangkat);
@@ -1087,6 +1092,7 @@
                             tanggal_spt: this.normalizeDateValue(item.tanggal_spt || tglBerangkat),
                             tanggal_spd: this.normalizeDateValue(item.tanggal_spd || tglBerangkat),
                             tanggal_kwitansi: this.normalizeDateValue(item.tanggal_kwitansi || tglBerangkat),
+                            createdAt: this.normalizeDateTimeValue(item.createdAt),
                             tempatBerangkatId: item.tempatBerangkatId || (this.db.tempatBerangkat[0]?.id || ''),
                             rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
                             rekeningSubKegiatanKey: item.rekeningSubKegiatanKey || this.getRekeningKeysById(item.rekeningId).subKegiatanKey,
@@ -1329,7 +1335,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         Swal.fire('Error', 'Tanggal kembali harus setelah atau sama dengan tanggal berangkat', 'error'); return;
                     }
                     this.refreshNomorSurat();
-                    const newSppd = { ...this.formSppd, pengikut: this.formSppd.pengikut.map(({ search, ...rest }) => rest), id: Date.now().toString(), createdAt: new Date().toISOString() };
+                    const newSppd = { ...this.formSppd, pengikut: this.formSppd.pengikut.map(({ search, ...rest }) => rest), id: Date.now().toString(), createdAt: this.normalizeDateTimeValue(new Date()) };
                     this.db.sppd.push(newSppd);
                     this.saveDB();
                     Swal.fire('Berhasil', 'Data SPPD tersimpan. Silahkan klik Cetak Dokumen.', 'success');
@@ -1341,7 +1347,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 getLokasiName(id) {
                     const lokasi = this.db.lokasi.find(x => String(x.id) === String(id));
-                    return lokasi ? (lokasi.tujuan || lokasi.lokasi || lokasi.nama_lokasi || lokasi.tujuan_lokasi || lokasi.tempat_tujuan || '-') : '-';
+                    return lokasi ? (lokasi.tujuan || lokasi.Tujuan || lokasi.lokasi || lokasi.Lokasi || lokasi.nama_lokasi || lokasi.namaLokasi || lokasi['Nama Lokasi'] || lokasi.tujuan_lokasi || lokasi['Lokasi Tujuan'] || lokasi.tempat_tujuan || '-') : '-';
                 },
                 getTempatBerangkatName(id) {
                     const tempat = this.db.tempatBerangkat.find(x => String(x.id) === String(id));

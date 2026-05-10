@@ -20,7 +20,10 @@ function getDbKey_(sheetName) {
 function serializeSheetValue_(value, header) {
   if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
     const key = String(header || '').toLowerCase();
-    if (key.indexOf('tanggal') !== -1 || key.indexOf('tgl') !== -1 || key === 'createdat') {
+    if (key === 'createdat') {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    }
+    if (key.indexOf('tanggal') !== -1 || key.indexOf('tgl') !== -1) {
       return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
     }
     return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
@@ -305,6 +308,21 @@ function formatNumber_(num) {
   return Number(num || 0).toLocaleString('id-ID');
 }
 
+function normalizeDateTimeForSheet_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  const text = String(value).trim();
+  if (!text || text === '-') return '';
+  const normalizedText = text.replace('T', ' ').replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
+  const match = normalizedText.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (match) return match[1] + '-' + match[2] + '-' + match[3] + ' ' + (match[4] || '00') + ':' + (match[5] || '00') + ':' + (match[6] || '00');
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  return text;
+}
+
 // ==========================================
 // FUNGSI MENYIMPAN DATA KE GOOGLE SHEETS
 // ==========================================
@@ -348,6 +366,7 @@ function saveDatabase(dbPayload, settingsPayload) {
         (dataArray || []).forEach(item => {
           const row = headers.map(h => {
              let val = item[h];
+             if (h === 'createdAt') return normalizeDateTimeForSheet_(val);
              // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
              return val === undefined ? '' : val;
