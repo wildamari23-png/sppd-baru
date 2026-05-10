@@ -172,7 +172,7 @@ function ensureDocumentTemplates(settingsPayload) {
       const doc = DocumentApp.create('Template e-SPPD ' + templates[key].name);
       const body = doc.getBody();
       body.clear();
-      templates[key].content.split('\n').forEach(line => body.appendParagraph(line));
+      templates[key].content.split('\n').forEach(line => appendSafeParagraph_(body, line));
       doc.saveAndClose();
       templateIds[key] = doc.getId();
     }
@@ -205,6 +205,7 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, prin
   });
 
   insertSptEmployeeTable_(body, data.__PEGAWAI_SPT || []);
+  insertSpdEmployeeTable_(body, data.__PEGAWAI_SPD || []);
   fillBodyPlaceholders_(body, data);
   output.saveAndClose();
   const pdfBlob = DriveApp.getFileById(output.getId()).getAs(MimeType.PDF).setName(output.getName() + '.pdf');
@@ -225,25 +226,43 @@ function appendBodyElements_(targetBody, sourceBody) {
     const copy = child.copy();
     const type = child.getType();
     if (type === DocumentApp.ElementType.PARAGRAPH) {
-      targetBody.appendParagraph(copy.asParagraph());
+      appendSafeParagraph_(targetBody, copy.asParagraph());
     } else if (type === DocumentApp.ElementType.TABLE) {
       targetBody.appendTable(copy.asTable());
     } else if (type === DocumentApp.ElementType.LIST_ITEM) {
-      targetBody.appendListItem(copy.asListItem());
+      appendSafeListItem_(targetBody, copy.asListItem());
     } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
       targetBody.appendHorizontalRule();
     } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
       targetBody.appendPageBreak();
-    } else {
-      targetBody.appendParagraph(child.getText ? child.getText() : '');
+    } else if (child.getText && child.getText()) {
+      appendSafeParagraph_(targetBody, child.getText());
     }
   }
+}
+
+function normalizeDocumentText_(value) {
+  const text = String(value === undefined || value === null ? '' : value);
+  return text.length ? text : '\u00A0';
+}
+
+function appendSafeParagraph_(body, paragraphOrText) {
+  if (paragraphOrText && paragraphOrText.getType && paragraphOrText.getType() === DocumentApp.ElementType.PARAGRAPH) {
+    const paragraph = paragraphOrText.asParagraph();
+    return paragraph.getText() ? body.appendParagraph(paragraph) : body.appendParagraph('\u00A0');
+  }
+  return body.appendParagraph(normalizeDocumentText_(paragraphOrText));
+}
+
+function appendSafeListItem_(body, listItem) {
+  if (listItem && listItem.getText && listItem.getText()) return body.appendListItem(listItem);
+  return body.appendListItem('\u00A0');
 }
 
 function fillBodyPlaceholders_(body, data) {
   Object.keys(data || {}).forEach(key => {
     if (key.indexOf('__') === 0) return;
-    body.replaceText('\\{\\{' + key + '\\}\\}', String(data[key] === undefined || data[key] === null ? '' : data[key]));
+    body.replaceText('\\{\\{' + key + '\\}\\}', normalizeDocumentText_(data[key]));
   });
 }
 
@@ -264,32 +283,33 @@ function insertSptEmployeeTable_(body, people) {
       styleSptEmployeeTable_(table);
       body.removeChild(paragraph);
     } else if (type === DocumentApp.ElementType.TABLE) {
-      replaceSptPlaceholderInTable_(child.asTable(), placeholder, rows);
+      replaceDynamicTablePlaceholderInTable_(child.asTable(), placeholder, rows, styleSptEmployeeTable_);
     }
   }
 }
 
-function replaceSptPlaceholderInTable_(table, placeholder, rows) {
+function replaceDynamicTablePlaceholderInTable_(table, placeholder, rows, styler) {
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
     for (let c = 0; c < row.getNumCells(); c++) {
-      replaceSptPlaceholderInCell_(row.getCell(c), placeholder, rows);
+      replaceDynamicTablePlaceholderInCell_(row.getCell(c), placeholder, rows, styler);
     }
   }
 }
 
-function replaceSptPlaceholderInCell_(cell, placeholder, rows) {
+function replaceDynamicTablePlaceholderInCell_(cell, placeholder, rows, styler) {
   for (let i = 0; i < cell.getNumChildren(); i++) {
     const child = cell.getChild(i);
     const type = child.getType();
     if (type === DocumentApp.ElementType.PARAGRAPH) {
       const paragraph = child.asParagraph();
       if (paragraph.getText().indexOf(placeholder) === -1) continue;
-      paragraph.setText(paragraph.getText().split(placeholder).join(''));
+      const remainingText = paragraph.getText().split(placeholder).join('').trim();
+      paragraph.setText(remainingText || '\u00A0');
       const nestedTable = cell.appendTable(rows);
-      styleSptEmployeeTable_(nestedTable);
+      styler(nestedTable);
     } else if (type === DocumentApp.ElementType.TABLE) {
-      replaceSptPlaceholderInTable_(child.asTable(), placeholder, rows);
+      replaceDynamicTablePlaceholderInTable_(child.asTable(), placeholder, rows, styler);
     }
   }
 }
@@ -298,10 +318,57 @@ function styleSptEmployeeTable_(table) {
   table.setBorderWidth(0);
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-    row.getCell(0).setWidth(28);
-    row.getCell(1).setWidth(130);
-    row.getCell(2).setWidth(18);
-    row.getCell(3).setWidth(360);
+    row.getCell(0).setWidth(18);
+    row.getCell(1).setWidth(88);
+    row.getCell(2).setWidth(10);
+    row.getCell(3).setWidth(430);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      row.getCell(c).setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(1).setPaddingRight(1);
+    }
+  }
+}
+
+function insertSpdEmployeeTable_(body, people) {
+  const placeholder = '{{TABEL_PEGAWAI_SPD}}';
+  const rows = buildSpdEmployeeRows_(people || []);
+  for (let i = body.getNumChildren() - 1; i >= 0; i--) {
+    const child = body.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      const paragraph = child.asParagraph();
+      if (paragraph.getText().indexOf(placeholder) === -1) continue;
+      const table = body.insertTable(i + 1, rows);
+      styleSpdEmployeeTable_(table);
+      body.removeChild(paragraph);
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      replaceDynamicTablePlaceholderInTable_(child.asTable(), placeholder, rows, styleSpdEmployeeTable_);
+    }
+  }
+}
+
+function buildSpdEmployeeRows_(people) {
+  const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  return (people.length ? people : [{}]).map((p, index) => {
+    const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
+    return [
+      safeCellText_(letters[index] ? letters[index] + '.' : (index + 1) + '.'),
+      safeCellText_([p.nama, p.nip ? 'NIP. ' + p.nip : ''].filter(Boolean).join('\n')),
+      safeCellText_(pangkatGol || '-'),
+      safeCellText_(p.jabatan || '-'),
+      safeCellText_(p.nomorSpd || '-')
+    ];
+  });
+}
+
+function styleSpdEmployeeTable_(table) {
+  table.setBorderWidth(0);
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    row.getCell(0).setWidth(24);
+    row.getCell(1).setWidth(170);
+    row.getCell(2).setWidth(120);
+    row.getCell(3).setWidth(120);
+    row.getCell(4).setWidth(130);
     for (let c = 0; c < row.getNumCells(); c++) {
       row.getCell(c).setPaddingTop(1).setPaddingBottom(1).setPaddingLeft(2).setPaddingRight(2);
     }
@@ -312,11 +379,16 @@ function buildSptEmployeeRows_(people) {
   const rows = [];
   (people.length ? people : [{}]).forEach((p, index) => {
     const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
-    rows.push([String(index + 1) + '.', 'Nama', ':', p.nama || '-']);
-    rows.push(['', 'Pangkat/Golongan', ':', pangkatGol || '-']);
-    rows.push(['', 'Jabatan', ':', p.jabatan || '-']);
+    rows.push([safeCellText_(String(index + 1) + '.'), 'Nama', ':', safeCellText_(p.nama || '-')]);
+    rows.push([safeCellText_(' '), 'Pangkat/Golongan', ':', safeCellText_(pangkatGol || '-')]);
+    rows.push([safeCellText_(' '), 'Jabatan', ':', safeCellText_(p.jabatan || '-')]);
   });
   return rows;
+}
+
+function safeCellText_(value) {
+  const text = String(value === undefined || value === null ? '' : value);
+  return text.trim() ? text : '\u00A0';
 }
 
 function applyDocumentLayout_(doc, options) {
@@ -345,7 +417,7 @@ function getDefaultTemplateDefinitions_() {
     },
     spd: {
       name: 'SPD',
-      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERJALANAN DINAS (SPD)\nNomor: {{NOMOR_SPD}}\nTanggal Surat: {{TANGGAL_SPD}}\n\nPejabat pemberi perintah: Kepala UPTD Puskesmas Tanjung Puri\nPegawai: {{PEGAWAI_UTAMA}}\nMaksud: {{MAKSUD}}\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTempat Tujuan: {{TUJUAN}}\nLama Perjalanan: {{LAMA_HARI}} hari\nPembebanan Rekening:\n{{REKENING}}\n\nSintang, {{TANGGAL_SPD}}\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERJALANAN DINAS (SPD)\nNomor: {{NOMOR_SPD}}\nTanggal Surat: {{TANGGAL_SPD}}\n\nPejabat pemberi perintah: Kepala UPTD Puskesmas Tanjung Puri\nPegawai yang melaksanakan Perjalanan Dinas:\n{{TABEL_PEGAWAI_SPD}}\nMaksud: {{MAKSUD}}\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTempat Tujuan: {{TUJUAN}}\nLama Perjalanan: {{LAMA_HARI}} hari\nPembebanan Rekening:\n{{REKENING}}\n\nSintang, {{TANGGAL_SPD}}\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
     },
     kwitansi: {
       name: 'Kwitansi',
@@ -371,6 +443,14 @@ function buildTemplateData_(sppd, db, settings) {
   const berangkat = findById_(tempatBerangkat, sppd.tempatBerangkatId) || {};
   const rekening = findById_(rekeningRows, sppd.rekeningId) || {};
   const people = [utama].concat((sppd.pengikut || []).map(p => findById_(pegawai, p.pegawaiId)).filter(Boolean));
+  const peopleSpd = people.map((p, index) => ({
+    nama: p.nama || '-',
+    nip: p.nip || p.nipd || p.NIPD || '',
+    pangkat: p.pangkat || '',
+    golongan: p.golongan || '',
+    jabatan: p.jabatan || '',
+    nomorSpd: buildPersonSpdNumber_(sppd.nomorSpd || sppd.nomor || '', index)
+  }));
   const uangHarian = Number((shs[0] || {}).uangHarian || 0);
   const transport = Number(tujuan.transport || 0);
   const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
@@ -390,7 +470,7 @@ function buildTemplateData_(sppd, db, settings) {
     KOP_TELP: settings.kopTelp || '(0565) 21550 Hotline SMS 081256262764 Kode Pos 78611',
     KEPALA_NAMA: settings.kepalaNama || '',
     KEPALA_NIP: settings.kepalaNip || '',
-    KEPALA_JABATAN: settings.kepalaJabatan || 'PEMBINA',
+    KEPALA_JABATAN: formatJabatanGolongan_(settings.kepalaJabatan || 'PEMBINA', settings.kepalaGolongan || 'IV/a'),
     NOMOR_SPT: sppd.nomorSpt || sppd.nomor || '',
     NOMOR_SPD: sppd.nomorSpd || sppd.nomor || '',
     TANGGAL_SPT: formatDisplayDate_(sppd.tanggal_spt || sppd.tglBerangkat),
@@ -407,6 +487,7 @@ function buildTemplateData_(sppd, db, settings) {
     DAFTAR_PEGAWAI: people.map((p, i) => (i + 1) + '. ' + (p.nama || '-') + ' - ' + (p.jabatan || '') + ' / NIP. ' + (p.nip || '')).join('\n'),
     DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
     __PEGAWAI_SPT: people,
+    __PEGAWAI_SPD: peopleSpd,
     SUMBER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
@@ -416,6 +497,19 @@ function buildTemplateData_(sppd, db, settings) {
   };
 }
 
+
+function buildPersonSpdNumber_(baseNumber, index) {
+  const suffix = String(index + 1).padStart(2, '0');
+  if (!baseNumber) return suffix + '/SPD';
+  return String(baseNumber) + '-' + suffix;
+}
+
+function formatJabatanGolongan_(jabatan, golongan) {
+  const jab = String(jabatan || '').trim();
+  const gol = String(golongan || '').trim();
+  if (jab && gol && jab.indexOf(gol) === -1) return jab + '/(' + gol + ')';
+  return jab || gol || '';
+}
 
 function formatDisplayDate_(value) {
   const key = normalizeDateKey_(value);
