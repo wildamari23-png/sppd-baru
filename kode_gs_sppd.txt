@@ -250,25 +250,61 @@ function fillBodyPlaceholders_(body, data) {
 function insertSptEmployeeTable_(body, people) {
   const placeholder = '{{TABEL_PEGAWAI_SPT}}';
   const rows = buildSptEmployeeRows_(people || []);
+
+  // Placeholder bisa diletakkan sebagai paragraf biasa atau di dalam sel tabel template.
+  // Jika berada di dalam sel tabel, tabel pegawai disisipkan sebagai nested table transparan
+  // agar menyatu dengan layout tabel Google Docs yang sudah diedit pengguna.
   for (let i = body.getNumChildren() - 1; i >= 0; i--) {
     const child = body.getChild(i);
-    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-    const paragraph = child.asParagraph();
-    if (paragraph.getText().indexOf(placeholder) === -1) continue;
-
-    const table = body.insertTable(i + 1, rows);
-    table.setBorderWidth(0.5);
-    for (let r = 0; r < table.getNumRows(); r++) {
-      const row = table.getRow(r);
-      row.getCell(0).setWidth(28);
-      row.getCell(1).setWidth(130);
-      row.getCell(2).setWidth(18);
-      row.getCell(3).setWidth(360);
-      for (let c = 0; c < row.getNumCells(); c++) {
-        row.getCell(c).setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(6).setPaddingRight(6);
-      }
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      const paragraph = child.asParagraph();
+      if (paragraph.getText().indexOf(placeholder) === -1) continue;
+      const table = body.insertTable(i + 1, rows);
+      styleSptEmployeeTable_(table);
+      body.removeChild(paragraph);
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      replaceSptPlaceholderInTable_(child.asTable(), placeholder, rows);
     }
-    body.removeChild(paragraph);
+  }
+}
+
+function replaceSptPlaceholderInTable_(table, placeholder, rows) {
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      replaceSptPlaceholderInCell_(row.getCell(c), placeholder, rows);
+    }
+  }
+}
+
+function replaceSptPlaceholderInCell_(cell, placeholder, rows) {
+  for (let i = 0; i < cell.getNumChildren(); i++) {
+    const child = cell.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      const paragraph = child.asParagraph();
+      if (paragraph.getText().indexOf(placeholder) === -1) continue;
+      paragraph.setText(paragraph.getText().split(placeholder).join(''));
+      const nestedTable = cell.appendTable(rows);
+      styleSptEmployeeTable_(nestedTable);
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      replaceSptPlaceholderInTable_(child.asTable(), placeholder, rows);
+    }
+  }
+}
+
+function styleSptEmployeeTable_(table) {
+  table.setBorderWidth(0);
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    row.getCell(0).setWidth(28);
+    row.getCell(1).setWidth(130);
+    row.getCell(2).setWidth(18);
+    row.getCell(3).setWidth(360);
+    for (let c = 0; c < row.getNumCells(); c++) {
+      row.getCell(c).setPaddingTop(1).setPaddingBottom(1).setPaddingLeft(2).setPaddingRight(2);
+    }
   }
 }
 
