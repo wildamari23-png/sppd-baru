@@ -200,6 +200,18 @@
                                             <p class="text-xs text-gray-500">Realisasi rekening</p>
                                             <p class="text-2xl font-black text-amber-700">Rp {{ formatNumber(totalRealisasiRekening) }}</p>
                                         </div>
+                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
+                                            <p class="text-xs text-gray-500">Realisasi rekening</p>
+                                            <p class="text-2xl font-black text-amber-700">Rp {{ formatNumber(totalRealisasiRekening) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -311,6 +323,12 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'pertimbangan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.dasar_pertimbangan }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -1718,11 +1736,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 generatePDF(sppdData) {
                     if (!sppdData.__previewConfirmed) {
                         const defaultPaper = this.settings.paperSize || 'f4';
-                        const defaultOrientation = this.settings.paperOrientation || 'portrait';
                         const defaultMargin = this.settings.marginTop || 15;
-                        const defaultMarginRight = this.settings.marginRight || 15;
-                        const defaultMarginBottom = this.settings.marginBottom || 15;
-                        const defaultMarginLeft = this.settings.marginLeft || 15;
                         Swal.fire({
                             title: 'Preview & Pengaturan Dokumen',
                             width: 720,
@@ -1730,19 +1744,18 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                                 <div class="text-left space-y-4">
                                     <div class="rounded-2xl bg-gradient-to-br from-teal-50 to-blue-50 border border-teal-100 p-4">
                                         <div class="text-sm font-bold text-slate-700">${sppdData.nomorSpt || sppdData.nomor || 'Dokumen SPPD'}</div>
-                                        <div class="text-xs text-slate-500 mt-1">Atur ukuran kertas dan margin sebelum dokumen dibuat. Centang simpan agar menjadi default berikutnya.</div>
+                                        <div class="text-xs text-slate-500 mt-1">Atur ukuran kertas dan margin sebelum dokumen dibuat. Layout Google Docs template akan dipertahankan.</div>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <label class="text-xs font-bold text-slate-600">Ukuran Kertas<select id="pdfPaperSize" class="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="f4" ${defaultPaper === 'f4' ? 'selected' : ''}>F4</option><option value="a4" ${defaultPaper === 'a4' ? 'selected' : ''}>A4</option><option value="legal" ${defaultPaper === 'legal' ? 'selected' : ''}>Legal</option></select></label>
-                                        <label class="text-xs font-bold text-slate-600">Orientasi<select id="pdfOrientation" class="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="portrait" ${defaultOrientation === 'portrait' ? 'selected' : ''}>Portrait</option><option value="landscape" ${defaultOrientation === 'landscape' ? 'selected' : ''}>Landscape</option></select></label>
+                                        <label class="text-xs font-bold text-slate-600">Orientasi<select id="pdfOrientation" class="mt-1 w-full rounded-lg border border-slate-200 p-2"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
                                     </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         <label class="text-xs font-bold text-slate-600">Margin Atas (mm)<input id="pdfMarginTop" type="number" value="${defaultMargin}" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
-                                        <label class="text-xs font-bold text-slate-600">Kanan (mm)<input id="pdfMarginRight" type="number" value="${defaultMarginRight}" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
-                                        <label class="text-xs font-bold text-slate-600">Bawah (mm)<input id="pdfMarginBottom" type="number" value="${defaultMarginBottom}" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
-                                        <label class="text-xs font-bold text-slate-600">Kiri (mm)<input id="pdfMarginLeft" type="number" value="${defaultMarginLeft}" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
+                                        <label class="text-xs font-bold text-slate-600">Kanan (mm)<input id="pdfMarginRight" type="number" value="15" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
+                                        <label class="text-xs font-bold text-slate-600">Bawah (mm)<input id="pdfMarginBottom" type="number" value="15" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
+                                        <label class="text-xs font-bold text-slate-600">Kiri (mm)<input id="pdfMarginLeft" type="number" value="15" class="mt-1 w-full rounded-lg border border-slate-200 p-2"></label>
                                     </div>
-                                    <label class="flex items-center gap-2 rounded-xl bg-white border border-teal-100 p-3 text-sm font-bold text-slate-700"><input id="pdfSaveSettings" type="checkbox" class="rounded border-teal-300 text-teal-600" checked> Simpan pengaturan ini sebagai default cetak berikutnya</label>
                                 </div>`,
                             showCancelButton: true,
                             confirmButtonText: '<i class="fas fa-download mr-1"></i> Download PDF',
@@ -1753,23 +1766,10 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                                 marginTop: Number(document.getElementById('pdfMarginTop').value || 15),
                                 marginRight: Number(document.getElementById('pdfMarginRight').value || 15),
                                 marginBottom: Number(document.getElementById('pdfMarginBottom').value || 15),
-                                marginLeft: Number(document.getElementById('pdfMarginLeft').value || 15),
-                                saveSettings: document.getElementById('pdfSaveSettings').checked
+                                marginLeft: Number(document.getElementById('pdfMarginLeft').value || 15)
                             })
                         }).then(result => {
-                            if (result.isConfirmed) {
-                                if (result.value.saveSettings) {
-                                    this.settings.paperSize = result.value.paperSize;
-                                    this.settings.paperOrientation = result.value.orientation;
-                                    this.settings.marginTop = result.value.marginTop;
-                                    this.settings.marginRight = result.value.marginRight;
-                                    this.settings.marginBottom = result.value.marginBottom;
-                                    this.settings.marginLeft = result.value.marginLeft;
-                                    localStorage.setItem('sppd_settings', JSON.stringify(this.settings));
-                                    if (this.isGAS) this.saveDB();
-                                }
-                                this.generatePDF({ ...sppdData, __previewConfirmed: true, __paperOptions: result.value });
-                            }
+                            if (result.isConfirmed) this.generatePDF({ ...sppdData, __previewConfirmed: true, __paperOptions: result.value });
                         });
                         return;
                     }
@@ -1797,7 +1797,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             'a4': [210, 297]
                         };
                         let dim = paperDimensions[printOptions.paperSize || this.settings.paperSize] || paperDimensions['f4'];
-                        const orientation = printOptions.orientation || this.settings.paperOrientation || 'portrait';
+                        const orientation = printOptions.orientation || 'portrait';
                         if (orientation === 'landscape') dim = [dim[1], dim[0]];
                         const doc = new jspdf.jsPDF({ orientation: orientation === 'landscape' ? 'l' : 'p', unit: 'mm', format: dim });
                         
