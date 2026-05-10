@@ -143,6 +143,143 @@ function normalizeDateKey_(value) {
   return text;
 }
 
+
+// ==========================================
+// FUNGSI TEMPLATE GOOGLE DOCS & PDF
+// ==========================================
+function ensureDocumentTemplates(settingsPayload) {
+  const settings = settingsPayload || {};
+  const templateIds = settings.templateIds || {};
+  const templates = getDefaultTemplateDefinitions_();
+
+  Object.keys(templates).forEach(key => {
+    if (!templateIds[key]) {
+      const doc = DocumentApp.create('Template e-SPPD ' + templates[key].name);
+      const body = doc.getBody();
+      body.clear();
+      templates[key].content.split('\n').forEach(line => body.appendParagraph(line));
+      doc.saveAndClose();
+      templateIds[key] = doc.getId();
+    }
+  });
+
+  settings.templateIds = templateIds;
+  return {
+    templateIds: templateIds,
+    editUrls: Object.keys(templateIds).reduce((acc, key) => {
+      acc[key] = 'https://docs.google.com/document/d/' + templateIds[key] + '/edit';
+      return acc;
+    }, {})
+  };
+}
+
+function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload) {
+  const settings = settingsPayload || {};
+  const ensured = ensureDocumentTemplates(settings);
+  const data = buildTemplateData_(sppdData || {}, dbPayload || {}, settings);
+  const output = DocumentApp.create('Dokumen SPPD - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
+  const body = output.getBody();
+  body.clear();
+
+  ['spt', 'spd', 'kwitansi', 'laporan'].forEach((key, index) => {
+    const templateId = ensured.templateIds[key];
+    const templateDoc = DocumentApp.openById(templateId);
+    const text = fillTemplate_(templateDoc.getBody().getText(), data);
+    if (index > 0) body.appendPageBreak();
+    text.split('\n').forEach(line => body.appendParagraph(line));
+  });
+
+  output.saveAndClose();
+  const pdfBlob = DriveApp.getFileById(output.getId()).getAs(MimeType.PDF).setName(output.getName() + '.pdf');
+  const pdfFile = DriveApp.createFile(pdfBlob);
+  return {
+    status: 'success',
+    templateIds: ensured.templateIds,
+    docUrl: 'https://docs.google.com/document/d/' + output.getId() + '/edit',
+    pdfUrl: pdfFile.getUrl()
+  };
+}
+
+function getDefaultTemplateDefinitions_() {
+  return {
+    spt: {
+      name: 'SPT',
+      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERINTAH TUGAS\nNomor: {{NOMOR_SPT}}\nTanggal Surat: {{TANGGAL_SPT}}\n\nYang bertanda tangan di bawah ini menugaskan:\n{{DAFTAR_PEGAWAI}}\n\nUntuk: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTujuan: {{TUJUAN}}\n\nSintang, {{TANGGAL_SPT}}\nKepala UPTD Puskesmas\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+    },
+    spd: {
+      name: 'SPD',
+      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERJALANAN DINAS (SPD)\nNomor: {{NOMOR_SPD}}\nTanggal Surat: {{TANGGAL_SPD}}\n\nPejabat pemberi perintah: Kepala UPTD Puskesmas Tanjung Puri\nPegawai: {{PEGAWAI_UTAMA}}\nMaksud: {{MAKSUD}}\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTempat Tujuan: {{TUJUAN}}\nLama Perjalanan: {{LAMA_HARI}} hari\nPembebanan Rekening:\n{{REKENING}}\n\nSintang, {{TANGGAL_SPD}}\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+    },
+    kwitansi: {
+      name: 'Kwitansi',
+      content: '{{KOP_UPTD}}\n\nRINCIAN BIAYA PERJALANAN DINAS\nNomor SPD: {{NOMOR_SPD}}\nPegawai: {{PEGAWAI_UTAMA}}\nTujuan: {{TUJUAN}}\nTanggal Kwitansi: {{TANGGAL_KWITANSI}}\n\nUang Harian: Rp {{UANG_HARIAN}}\nTransport: Rp {{TRANSPORT}}\nTotal Estimasi: Rp {{TOTAL_BIAYA}}\n\nLunas Dibayar Tanggal: {{TANGGAL_KWITANSI}}'
+    },
+    laporan: {
+      name: 'Laporan',
+      content: '{{KOP_UPTD}}\n\nLAPORAN HASIL PERJALANAN DINAS\nNomor SPT: {{NOMOR_SPT}}\nNomor SPD: {{NOMOR_SPD}}\n\nMaksud: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nPetugas:\n{{DAFTAR_PEGAWAI}}\nTujuan: {{TUJUAN}}\n\nHasil Kegiatan:\n{{LAPORAN_HASIL}}'
+    }
+  };
+}
+
+function buildTemplateData_(sppd, db, settings) {
+  const pegawai = db.pegawai || [];
+  const lokasi = db.lokasi || [];
+  const tempatBerangkat = db.tempatBerangkat || [];
+  const rekeningRows = db.rekening || [];
+  const shs = db.shs || [];
+  const utama = findById_(pegawai, sppd.pegawaiUtama) || {};
+  const tujuan = findById_(lokasi, sppd.lokasiId) || {};
+  const berangkat = findById_(tempatBerangkat, sppd.tempatBerangkatId) || {};
+  const rekening = findById_(rekeningRows, sppd.rekeningId) || {};
+  const people = [utama].concat((sppd.pengikut || []).map(p => findById_(pegawai, p.pegawaiId)).filter(Boolean));
+  const uangHarian = Number((shs[0] || {}).uangHarian || 0);
+  const transport = Number(tujuan.transport || 0);
+  const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
+
+  return {
+    KOP_INSTANSI: settings.kopInstansi || '',
+    KOP_DINAS: settings.kopDinas || '',
+    KOP_UPTD: settings.kopUptd || '',
+    KOP_ALAMAT: settings.kopAlamat || '',
+    KEPALA_NAMA: settings.kepalaNama || '',
+    KEPALA_NIP: settings.kepalaNip || '',
+    NOMOR_SPT: sppd.nomorSpt || sppd.nomor || '',
+    NOMOR_SPD: sppd.nomorSpd || sppd.nomor || '',
+    TANGGAL_SPT: sppd.tanggal_spt || sppd.tglBerangkat || '',
+    TANGGAL_SPD: sppd.tanggal_spd || sppd.tglBerangkat || '',
+    TANGGAL_KWITANSI: sppd.tanggal_kwitansi || sppd.tglBerangkat || '',
+    TGL_BERANGKAT: sppd.tglBerangkat || '',
+    TGL_KEMBALI: sppd.tglKembali || '',
+    LAMA_HARI: String(sppd.lamaHari || ''),
+    MAKSUD: sppd.maksud || '',
+    TEMPAT_BERANGKAT: berangkat.tempat || 'UPTD Puskesmas Tanjung Puri',
+    TUJUAN: tujuan.tujuan || tujuan.lokasi || tujuan.nama_lokasi || tujuan.tujuan_lokasi || '-',
+    PEGAWAI_UTAMA: utama.nama || '-',
+    DAFTAR_PEGAWAI: people.map((p, i) => (i + 1) + '. ' + (p.nama || '-') + ' - ' + (p.jabatan || '') + ' / NIP. ' + (p.nip || '')).join('\n'),
+    REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
+    UANG_HARIAN: formatNumber_(uangHarian),
+    TRANSPORT: formatNumber_(transport),
+    TOTAL_BIAYA: formatNumber_(total),
+    LAPORAN_HASIL: sppd.laporanHasil || 'Belum ada uraian laporan kegiatan yang diinput.'
+  };
+}
+
+function fillTemplate_(text, data) {
+  let output = text || '';
+  Object.keys(data).forEach(key => {
+    output = output.split('{{' + key + '}}').join(data[key]);
+  });
+  return output;
+}
+
+function findById_(rows, id) {
+  return (rows || []).find(row => String(row.id) === String(id));
+}
+
+function formatNumber_(num) {
+  return Number(num || 0).toLocaleString('id-ID');
+}
+
 // ==========================================
 // FUNGSI MENYIMPAN DATA KE GOOGLE SHEETS
 // ==========================================

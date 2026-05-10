@@ -39,6 +39,9 @@
         .metric-card::before { content: ''; position: absolute; inset: -45%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); animation: shineMove 5s infinite linear; }
         .metric-icon { animation: floatPulse 3.5s ease-in-out infinite; }
         .combo-panel { position: absolute; z-index: 60; width: 100%; max-height: 260px; overflow-y: auto; margin-top: .35rem; border-radius: 1rem; border: 1px solid rgba(20,184,166,.25); background: rgba(255,255,255,.98); box-shadow: 0 24px 55px rgba(15,118,110,.16); backdrop-filter: blur(8px); }
+        .swal2-popup { border-radius: 1.25rem !important; box-shadow: 0 28px 80px rgba(15,23,42,.22) !important; }
+        .swal2-confirm { border-radius: .85rem !important; background: linear-gradient(135deg, #0d9488, #059669) !important; }
+        .swal2-cancel { border-radius: .85rem !important; }
     </style>
 </head>
 <body>
@@ -196,6 +199,22 @@
                                             <p class="text-xs text-gray-500">Master jabatan</p>
                                             <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
+                                        <div class="p-4 rounded-xl bg-white border border-blue-100">
+                                            <p class="text-xs text-gray-500">Perjalanan aktif</p>
+                                            <p class="text-2xl font-black text-blue-700">{{ activeTrips }}</p>
+                                        </div>
+                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
+                                            <p class="text-xs text-gray-500">Master jabatan</p>
+                                            <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -300,6 +319,9 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -632,6 +654,25 @@
                                     </div>
                                 </div>
 
+                                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 mt-8"><i class="fas fa-file-word mr-2 text-teal-600"></i> Template Google Docs</h3>
+                                <div class="modern-card rounded-xl p-5">
+                                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                                        <div>
+                                            <h4 class="font-bold text-gray-800">Dokumen SPT, SPD, Kwitansi, dan Laporan berbasis Google Docs</h4>
+                                            <p class="text-sm text-gray-500">Klik generate untuk membuat template awal otomatis. Edit template langsung di Google Docs, hasil akhir tetap PDF.</p>
+                                        </div>
+                                        <button @click="generateDocumentTemplates" class="bg-teal-600 hover:bg-teal-700 text-white font-medium px-5 py-2.5 rounded-lg shadow-md transition flex items-center justify-center">
+                                            <i class="fas fa-wand-magic-sparkles mr-2"></i> Generate Template
+                                        </button>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                        <button v-for="tpl in templateButtons" :key="tpl.key" type="button" @click="openTemplateEditor(tpl.key)" class="p-3 rounded-xl border border-teal-100 bg-white hover:bg-teal-50 text-left transition">
+                                            <div class="text-xs font-bold text-teal-700 uppercase">{{ tpl.label }}</div>
+                                            <div class="text-xs text-gray-500 mt-1">{{ settings.templateIds && settings.templateIds[tpl.key] ? 'Siap diedit' : 'Belum dibuat' }}</div>
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 mt-8"><i class="fas fa-database mr-2 text-teal-600"></i> Setup Google Sheets (Database)</h3>
                                 <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 flex flex-col md:flex-row justify-between items-center gap-4">
                                     <div>
@@ -814,7 +855,8 @@
                         kopUptd: 'UPTD PUSKESMAS TANJUNG PURI',
                         kopAlamat: 'Jalan Lintas Melawi, Tanjung Puri, Kec. Sintang, Kabupaten Sintang',
                         kopLogo: null,
-                        appLogo: null
+                        appLogo: null,
+                        templateIds: {}
                     }
                 }
             },
@@ -860,6 +902,14 @@
                         { title: 'Total SPT/SPD', value: this.db.sppd.length, caption: `${this.sppdThisMonth.length} perjalanan bulan ini`, icon: 'fas fa-paper-plane', gradient: 'bg-gradient-to-br from-blue-500 to-indigo-700', progress: Math.min(100, this.db.sppd.length * 10) },
                         { title: 'Objek Rekening', value: this.db.rekening.length, caption: 'Kegiatan, sub, dan objek belanja', icon: 'fas fa-wallet', gradient: 'bg-gradient-to-br from-orange-500 to-amber-700', progress: Math.min(100, this.db.rekening.length * 12) },
                         { title: 'Perjalanan Aktif', value: this.activeTrips, caption: 'Sedang berlangsung hari ini', icon: 'fas fa-route', gradient: 'bg-gradient-to-br from-fuchsia-500 to-rose-700', progress: Math.min(100, Math.max(12, this.activeTrips * 25)) }
+                    ];
+                },
+                templateButtons() {
+                    return [
+                        { key: 'spt', label: 'Template SPT' },
+                        { key: 'spd', label: 'Template SPD' },
+                        { key: 'kwitansi', label: 'Template Kwitansi' },
+                        { key: 'laporan', label: 'Template Laporan' }
                     ];
                 }
             },
@@ -990,6 +1040,11 @@
                         kode_rek_objek_belanja: item.kode_rek_objek_belanja || item.kode || '',
                         nama_objek_belanja: item.nama_objek_belanja || item.objek || ''
                     }));
+                    this.db.lokasi = this.db.lokasi.map((item, index) => ({
+                        ...item,
+                        id: item.id || `L${index + 1}`,
+                        tujuan: item.tujuan || item.lokasi || item.nama_lokasi || item.tujuan_lokasi || item.tempat_tujuan || item.daerah_tujuan || '-'
+                    }));
                     if (this.db.tempatBerangkat.length === 0) this.db.tempatBerangkat = [{ id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default' }];
                     this.db.sppd = this.db.sppd.map((item, index) => ({
                         ...item,
@@ -1114,7 +1169,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                                         if (String(p.pegawaiId) === String(id)) { p.pegawaiId = ''; p.search = ''; }
                                     });
                                 });
-                                Swal.fire('Pegawai diblokir absensi', blocked.map(id => `${this.getPegawaiName(id)}: ${this.getAbsensiInfo(id).label}`).join('<br>'), 'warning');
+                                Swal.fire({ icon: 'warning', title: 'Kontrol Absensi', html: `<b>${blocked.length}</b> pegawai diblokir, <b>${Math.max(cleanIds.length - blocked.length, 0)}</b> pegawai bisa digunakan.` });
                             }
                             this.isCheckingAbsensi = false;
                         })
@@ -1126,7 +1181,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 selectPegawaiUtama(pegawai) {
                     const info = this.getAbsensiInfo(pegawai.id);
-                    if (!info.available) { Swal.fire('Pegawai tidak bisa dipilih', `${pegawai.nama}: ${info.label}`, 'warning'); return; }
+                    if (!info.available) { Swal.fire({ icon: 'warning', title: 'Pegawai diblokir', html: '<b>1</b> pegawai diblokir, <b>0</b> pegawai bisa digunakan.' }); return; }
                     this.formSppd.pegawaiUtama = pegawai.id;
                     this.pegawaiSearchUtama = `${pegawai.nama} - ${pegawai.jabatan || ''}`;
                     this.activePegawaiDropdown = null;
@@ -1134,7 +1189,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 selectPengikut(index, pegawai) {
                     const info = this.getAbsensiInfo(pegawai.id);
-                    if (!info.available) { Swal.fire('Pengikut tidak bisa dipilih', `${pegawai.nama}: ${info.label}`, 'warning'); return; }
+                    if (!info.available) { Swal.fire({ icon: 'warning', title: 'Pengikut diblokir', html: '<b>1</b> pegawai diblokir, <b>0</b> pegawai bisa digunakan.' }); return; }
                     this.formSppd.pengikut[index].pegawaiId = pegawai.id;
                     this.formSppd.pengikut[index].search = `${pegawai.nama} - ${pegawai.jabatan || ''}`;
                     this.activePengikutIndex = null;
@@ -1224,7 +1279,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     const selectedPegawaiIds = [this.formSppd.pegawaiUtama, ...this.formSppd.pengikut.map(p => p.pegawaiId)];
                     const blockedPegawai = selectedPegawaiIds.map(id => ({ id, nama: this.getPegawaiName(id), info: this.getAbsensiInfo(id) })).filter(item => !item.info.available);
                     if(blockedPegawai.length > 0) {
-                        Swal.fire('Pegawai tidak bisa berangkat', blockedPegawai.map(item => `${item.nama}: ${item.info.label}`).join('<br>'), 'warning'); return;
+                        Swal.fire({ icon: 'warning', title: 'Pegawai tidak bisa berangkat', html: `<b>${blockedPegawai.length}</b> pegawai diblokir, <b>${Math.max(selectedPegawaiIds.length - blockedPegawai.length, 0)}</b> pegawai bisa digunakan.` }); return;
                     }
                     if(!this.formSppd.rekeningId) {
                         Swal.fire('Rekening belum lengkap', 'Pilih kegiatan, sub kegiatan, dan objek belanja secara berurutan.', 'warning'); return;
@@ -1251,7 +1306,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 getLokasiName(id) {
                     const lokasi = this.db.lokasi.find(x => String(x.id) === String(id));
-                    return lokasi ? lokasi.tujuan : '-';
+                    return lokasi ? (lokasi.tujuan || lokasi.lokasi || lokasi.nama_lokasi || lokasi.tujuan_lokasi || lokasi.tempat_tujuan || '-') : '-';
                 },
                 getTempatBerangkatName(id) {
                     const tempat = this.db.tempatBerangkat.find(x => String(x.id) === String(id));
@@ -1282,7 +1337,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     
                     this.db.sppd.forEach(row => {
                         const utama = this.getPegawaiName(row.pegawaiUtama);
-                        const lokasi = this.db.lokasi.find(l => String(l.id) === String(row.lokasiId))?.tujuan || '-';
+                        const lokasi = this.getLokasiName(row.lokasiId);
                         const tempatBerangkat = this.getTempatBerangkatName(row.tempatBerangkatId);
                         const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
                         const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
@@ -1299,6 +1354,34 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     link.click();
                     document.body.removeChild(link);
                 },
+                generateDocumentTemplates() {
+                    if (!this.isGAS) {
+                        Swal.fire({ icon: 'info', title: 'Mode Lokal', text: 'Template Google Docs hanya dapat dibuat saat aplikasi berjalan dari Apps Script.' });
+                        return;
+                    }
+                    this.isSyncing = true;
+                    google.script.run
+                        .withSuccessHandler((res) => {
+                            this.isSyncing = false;
+                            this.settings.templateIds = res.templateIds || {};
+                            localStorage.setItem('sppd_settings', JSON.stringify(this.settings));
+                            Swal.fire({ icon: 'success', title: 'Template Siap', text: 'Template Google Docs berhasil dibuat dan siap diedit.' });
+                        })
+                        .withFailureHandler((err) => {
+                            this.isSyncing = false;
+                            Swal.fire({ icon: 'error', title: 'Gagal Membuat Template', text: err.message });
+                        })
+                        .ensureDocumentTemplates(this.settings);
+                },
+                openTemplateEditor(type) {
+                    const id = this.settings.templateIds && this.settings.templateIds[type];
+                    if (id) {
+                        window.open(`https://docs.google.com/document/d/${id}/edit`, '_blank');
+                        return;
+                    }
+                    Swal.fire({ icon: 'info', title: 'Template belum dibuat', text: 'Klik Generate Template terlebih dahulu.' });
+                },
+
                 generateGoogleSheets() {
                     if (!this.isGAS) {
                         Swal.fire('Mode Lokal', 'Aplikasi saat ini berjalan di mode lokal (bukan Apps Script). Jika ingin menghubungkan ke Google Sheets, jalankan aplikasi ini dari URL Deployment Apps Script.', 'info');
@@ -1378,6 +1461,22 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 // GENERATE PDF PDF LOGIC (jsPDF + Permendagri)
                 // ==========================================
                 generatePDF(sppdData) {
+                    if (this.isGAS) {
+                        this.isSyncing = true;
+                        google.script.run
+                            .withSuccessHandler((res) => {
+                                this.isSyncing = false;
+                                if (res.templateIds) this.settings.templateIds = res.templateIds;
+                                if (res.pdfUrl) window.open(res.pdfUrl, '_blank');
+                                Swal.fire({ icon: 'success', title: 'PDF Siap', text: 'Dokumen dibuat dari template Google Docs.' });
+                            })
+                            .withFailureHandler((err) => {
+                                this.isSyncing = false;
+                                Swal.fire({ icon: 'error', title: 'Gagal Generate PDF', text: err.message });
+                            })
+                            .generateSppdPdfFromTemplates(sppdData, this.db, this.settings);
+                        return;
+                    }
                     try {
                         const paperDimensions = {
                             'f4': [215.9, 330.2],
