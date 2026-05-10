@@ -204,6 +204,7 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, prin
     appendBodyElements_(body, templateDoc.getBody());
   });
 
+  insertSptEmployeeTable_(body, data.__PEGAWAI_SPT || []);
   fillBodyPlaceholders_(body, data);
   output.saveAndClose();
   const pdfBlob = DriveApp.getFileById(output.getId()).getAs(MimeType.PDF).setName(output.getName() + '.pdf');
@@ -241,8 +242,45 @@ function appendBodyElements_(targetBody, sourceBody) {
 
 function fillBodyPlaceholders_(body, data) {
   Object.keys(data || {}).forEach(key => {
+    if (key.indexOf('__') === 0) return;
     body.replaceText('\\{\\{' + key + '\\}\\}', String(data[key] === undefined || data[key] === null ? '' : data[key]));
   });
+}
+
+function insertSptEmployeeTable_(body, people) {
+  const placeholder = '{{TABEL_PEGAWAI_SPT}}';
+  const rows = buildSptEmployeeRows_(people || []);
+  for (let i = body.getNumChildren() - 1; i >= 0; i--) {
+    const child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    const paragraph = child.asParagraph();
+    if (paragraph.getText().indexOf(placeholder) === -1) continue;
+
+    const table = body.insertTable(i + 1, rows);
+    table.setBorderWidth(0.5);
+    for (let r = 0; r < table.getNumRows(); r++) {
+      const row = table.getRow(r);
+      row.getCell(0).setWidth(28);
+      row.getCell(1).setWidth(130);
+      row.getCell(2).setWidth(18);
+      row.getCell(3).setWidth(360);
+      for (let c = 0; c < row.getNumCells(); c++) {
+        row.getCell(c).setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(6).setPaddingRight(6);
+      }
+    }
+    body.removeChild(paragraph);
+  }
+}
+
+function buildSptEmployeeRows_(people) {
+  const rows = [];
+  (people.length ? people : [{}]).forEach((p, index) => {
+    const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
+    rows.push([String(index + 1) + '.', 'Nama', ':', p.nama || '-']);
+    rows.push(['', 'Pangkat/Golongan', ':', pangkatGol || '-']);
+    rows.push(['', 'Jabatan', ':', p.jabatan || '-']);
+  });
+  return rows;
 }
 
 function applyDocumentLayout_(doc, options) {
@@ -267,7 +305,7 @@ function getDefaultTemplateDefinitions_() {
   return {
     spt: {
       name: 'SPT',
-      content: '{{KOP_UPTD}}\n{{KOP_ALAMAT}}\nEmail : {{KOP_EMAIL}}\nTelp. {{KOP_TELP}}\n\nS U R A T   P E R I N T A H   T U G A S\nNOMOR : {{NOMOR_SPT}}\n\nDasar / Pertimbangan :\n{{DASAR_PERTIMBANGAN}}\n\nMEMERINTAHKAN\nKepada :\n{{DAFTAR_PEGAWAI_SPT}}\n\nUntuk :\n{{MAKSUD}}\n\nTanggal Berangkat : {{TGL_BERANGKAT}}\nTanggal Kembali   : {{TGL_KEMBALI}}\nSumber Dana       : {{SUMBER_DANA}}\n\nDikeluarkan di : Sintang\nPada tanggal   : {{TANGGAL_SPT}}\n\nKepala UPTD Puskesmas Tanjung Puri\n\n\n\n{{KEPALA_NAMA}}\n{{KEPALA_JABATAN}}\nNIP. {{KEPALA_NIP}}'
+      content: '{{KOP_UPTD}}\n{{KOP_ALAMAT}}\nEmail : {{KOP_EMAIL}}\nTelp. {{KOP_TELP}}\n\nS U R A T   P E R I N T A H   T U G A S\nNOMOR : {{NOMOR_SPT}}\n\nDasar / Pertimbangan :\n{{DASAR_PERTIMBANGAN}}\n\nMEMERINTAHKAN\nKepada :\n{{TABEL_PEGAWAI_SPT}}\n\nUntuk :\n{{MAKSUD}}\n\nTanggal Berangkat : {{TGL_BERANGKAT}}\nTanggal Kembali   : {{TGL_KEMBALI}}\nSumber Dana       : {{SUMBER_DANA}}\n\nDikeluarkan di : Sintang\nPada tanggal   : {{TANGGAL_SPT}}\n\nKepala UPTD Puskesmas Tanjung Puri\n\n\n\n{{KEPALA_NAMA}}\n{{KEPALA_JABATAN}}\nNIP. {{KEPALA_NIP}}'
     },
     spd: {
       name: 'SPD',
@@ -332,6 +370,7 @@ function buildTemplateData_(sppd, db, settings) {
     PEGAWAI_UTAMA: utama.nama || '-',
     DAFTAR_PEGAWAI: people.map((p, i) => (i + 1) + '. ' + (p.nama || '-') + ' - ' + (p.jabatan || '') + ' / NIP. ' + (p.nip || '')).join('\n'),
     DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
+    __PEGAWAI_SPT: people,
     SUMBER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
