@@ -36,7 +36,7 @@ function serializeSheetValue_(value, header) {
 // ==========================================
 function loadAllData() {
   const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
-  const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'TempatBerangkat', 'Sppd'];
+  const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'TempatBerangkat', 'Pertimbangan', 'Sppd'];
   const db = {};
   
   sheets.forEach(sheetName => {
@@ -219,7 +219,7 @@ function getDefaultTemplateDefinitions_() {
   return {
     spt: {
       name: 'SPT',
-      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERINTAH TUGAS\nNomor: {{NOMOR_SPT}}\nTanggal Surat: {{TANGGAL_SPT}}\n\nYang bertanda tangan di bawah ini menugaskan:\n{{DAFTAR_PEGAWAI}}\n\nUntuk: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTujuan: {{TUJUAN}}\n\nSintang, {{TANGGAL_SPT}}\nKepala UPTD Puskesmas\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERINTAH TUGAS\nNomor: {{NOMOR_SPT}}\nTanggal Surat: {{TANGGAL_SPT}}\nDasar/Pertimbangan: {{DASAR_PERTIMBANGAN}}\n\nYang bertanda tangan di bawah ini menugaskan:\n{{DAFTAR_PEGAWAI}}\n\nUntuk: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTujuan: {{TUJUAN}}\n\nSintang, {{TANGGAL_SPT}}\nKepala UPTD Puskesmas\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
     },
     spd: {
       name: 'SPD',
@@ -231,7 +231,7 @@ function getDefaultTemplateDefinitions_() {
     },
     laporan: {
       name: 'Laporan',
-      content: '{{KOP_UPTD}}\n\nLAPORAN HASIL PERJALANAN DINAS\nNomor SPT: {{NOMOR_SPT}}\nNomor SPD: {{NOMOR_SPD}}\n\nMaksud: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nPetugas:\n{{DAFTAR_PEGAWAI}}\nTujuan: {{TUJUAN}}\n\nHasil Kegiatan:\n{{LAPORAN_HASIL}}'
+      content: '{{KOP_UPTD}}\n\nLAPORAN HASIL PERJALANAN DINAS\nNomor SPT: {{NOMOR_SPT}}\nNomor SPD: {{NOMOR_SPD}}\nDasar/Pertimbangan: {{DASAR_PERTIMBANGAN}}\n\nMaksud: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nPetugas:\n{{DAFTAR_PEGAWAI}}\nTujuan: {{TUJUAN}}\n\nHasil Kegiatan:\n{{LAPORAN_HASIL}}'
     }
   };
 }
@@ -268,6 +268,7 @@ function buildTemplateData_(sppd, db, settings) {
     TGL_BERANGKAT: formatDisplayDate_(sppd.tglBerangkat),
     TGL_KEMBALI: formatDisplayDate_(sppd.tglKembali),
     LAMA_HARI: String(sppd.lamaHari || ''),
+    DASAR_PERTIMBANGAN: sppd.dasar_pertimbangan || '',
     MAKSUD: sppd.maksud || '',
     TEMPAT_BERANGKAT: berangkat.tempat || 'UPTD Puskesmas Tanjung Puri',
     TUJUAN: tujuan.tujuan || tujuan.lokasi || tujuan.nama_lokasi || tujuan.tujuan_lokasi || '-',
@@ -354,7 +355,8 @@ function saveDatabase(dbPayload, settingsPayload) {
         shs: ['id', 'kriteria', 'uangHarian', 'penginapan'],
         lokasi: ['id', 'tujuan', 'jarak', 'transport'],
         tempatBerangkat: ['id', 'tempat', 'keterangan'],
-        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'tempatBerangkatId', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'tanggal_spt', 'tanggal_spd', 'tanggal_kwitansi', 'laporanHasil', 'createdAt']
+        pertimbangan: ['id', 'dasar_pertimbangan'],
+        sppd: ['id', 'nomor', 'nomorSpt', 'nomorSpd', 'rekeningId', 'rekeningKegiatanKey', 'rekeningSubKegiatanKey', 'maksud', 'tempatBerangkatId', 'lokasiId', 'tglBerangkat', 'tglKembali', 'lamaHari', 'pegawaiUtama', 'pengikut', 'tanggal_spt', 'tanggal_spd', 'tanggal_kwitansi', 'laporanHasil', 'createdAt', 'dasar_pertimbangan']
       };
       const baseHeaders = defaultHeaders[key] || (dataArray && dataArray.length > 0 ? Object.keys(dataArray[0]) : []);
       const extraHeaders = [];

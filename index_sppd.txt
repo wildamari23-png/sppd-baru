@@ -199,6 +199,18 @@
                                             <p class="text-xs text-gray-500">Master jabatan</p>
                                             <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
+                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
+                                            <p class="text-xs text-gray-500">Master jabatan</p>
+                                            <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -242,7 +254,7 @@
                         </div>
 
                         <!-- VIEW: MASTER DATA (Generic Template used for Pegawai, Rekening, SHS, Lokasi) -->
-                        <div v-else-if="['pegawai', 'jabatan', 'rekening', 'shs', 'lokasi', 'tempatBerangkat'].includes(currentView)" :key="currentView" class="space-y-4">
+                        <div v-else-if="['pegawai', 'jabatan', 'rekening', 'shs', 'lokasi', 'tempatBerangkat', 'pertimbangan'].includes(currentView)" :key="currentView" class="space-y-4">
                             <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                 <div class="relative w-full md:w-64">
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -277,6 +289,9 @@
                                             <tr v-else-if="currentView === 'tempatBerangkat'">
                                                 <th class="px-6 py-3">Tempat Berangkat</th><th class="px-6 py-3">Keterangan</th><th class="px-6 py-3 text-right">Aksi</th>
                                             </tr>
+                                            <tr v-else-if="currentView === 'pertimbangan'">
+                                                <th class="px-6 py-3">ID</th><th class="px-6 py-3">Dasar/Pertimbangan</th><th class="px-6 py-3 text-right">Aksi</th>
+                                            </tr>
                                         </thead>
                                         <tbody>
                                             <tr v-for="(item, index) in filteredData" :key="item.id" class="border-b hover:bg-gray-50">
@@ -307,6 +322,12 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'pertimbangan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.dasar_pertimbangan }}</td>
                                                 </template>
                                                 
                                                 <!-- Action Buttons -->
@@ -377,21 +398,21 @@
                                             </div>
                                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 <div>
-                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode rekening kegiatan + nama kegiatan</label>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode Rek. Kegiatan</label>
                                                     <select v-model="formSppd.rekeningKegiatanKey" @change="onKegiatanChange" required class="w-full p-2.5 border border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white">
                                                         <option value="" disabled>Pilih Kegiatan</option>
                                                         <option v-for="opt in rekeningKegiatanOptions" :value="opt.key">{{ opt.kode }} - {{ opt.nama }}</option>
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode rekening sub kegiatan + nama sub kegiatan</label>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode Rek. Sub Kegiatan</label>
                                                     <select v-model="formSppd.rekeningSubKegiatanKey" @change="onSubKegiatanChange" :disabled="!formSppd.rekeningKegiatanKey" required class="w-full p-2.5 border border-blue-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white disabled:bg-gray-100">
                                                         <option value="" disabled>Pilih Sub Kegiatan</option>
                                                         <option v-for="opt in rekeningSubKegiatanOptions" :value="opt.key">{{ opt.kode }} - {{ opt.nama }}</option>
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode rekening objek belanja + nama objek belanja</label>
+                                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kode Rek. Objek Belanja</label>
                                                     <select v-model="formSppd.rekeningId" @change="onObjekBelanjaChange" :disabled="!formSppd.rekeningSubKegiatanKey" required class="w-full p-2.5 border border-emerald-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white disabled:bg-gray-100">
                                                         <option value="" disabled>Pilih Objek Belanja</option>
                                                         <option v-for="rek in rekeningObjekOptions" :value="rek.id">{{ rek.kode_rek_objek_belanja }} - {{ rek.nama_objek_belanja }} ({{ rek.sumberDana }})</option>
@@ -403,6 +424,25 @@
                                                 {{ selectedRekening.kode_rek_kegiatan }} {{ selectedRekening.nama_kegiatan }} &raquo;
                                                 {{ selectedRekening.kode_rek_sub_kegiatan }} {{ selectedRekening.nama_sub_Kegiatan }} &raquo;
                                                 {{ selectedRekening.kode_rek_objek_belanja }} {{ selectedRekening.nama_objek_belanja }}
+                                            </div>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Dasar/Pertimbangan</label>
+                                            <div class="relative">
+                                                <div class="flex gap-2">
+                                                    <div class="relative flex-1">
+                                                        <i class="fas fa-scale-balanced absolute left-3 top-3 text-teal-500"></i>
+                                                        <input v-model="pertimbanganSearch" @focus="activePertimbanganDropdown = true" @input="formSppd.dasar_pertimbangan = pertimbanganSearch; activePertimbanganDropdown = true" @blur="closePertimbanganDropdown" required type="text" class="w-full pl-10 p-2.5 border border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-white" placeholder="Pilih atau ketik dasar/pertimbangan baru...">
+                                                        <div v-if="activePertimbanganDropdown" class="combo-panel">
+                                                            <button type="button" v-for="item in filteredPertimbangan" :key="item.id" @mousedown.prevent="selectPertimbangan(item)" class="w-full text-left px-4 py-3 hover:bg-teal-50 border-b border-gray-50">
+                                                                <div class="text-sm font-semibold text-gray-800">{{ item.dasar_pertimbangan }}</div>
+                                                            </button>
+                                                            <div v-if="filteredPertimbangan.length === 0" class="px-4 py-3 text-sm text-gray-500">Belum ada pilihan. Klik Tambah Baru untuk menyimpan.</div>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" @click="addPertimbanganFromForm" class="shrink-0 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 text-xs font-bold shadow"><i class="fas fa-plus mr-1"></i>Tambah Baru</button>
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">Pilihan berasal dari sheet Pertimbangan. Ketik lalu tambah baru jika belum tersedia.</p>
                                             </div>
                                         </div>
                                         <div class="md:col-span-2">
@@ -537,8 +577,8 @@
                                             <tr v-for="(item, index) in db.sppd" :key="item.id" class="border-b hover:bg-gray-50">
                                                 <td class="px-6 py-4 font-medium">
                                                     <div>{{ item.nomorSpt || item.nomor }}</div>
-                                                    <span v-if="item.createdAt" class="inline-flex items-center mt-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 border border-slate-200">
-                                                        <i class="fas fa-clock mr-1 text-slate-400"></i>{{ formatDateTimeDisplay(item.createdAt) }}
+                                                    <span v-if="item.createdAt" class="inline-flex items-center gap-1 mt-1 rounded-full bg-gradient-to-r from-cyan-50 to-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700 ring-1 ring-teal-100 shadow-sm">
+                                                        <i class="fas fa-clock text-[9px] text-teal-500"></i>{{ formatDateTimeDisplay(item.createdAt) }}
                                                     </span>
                                                 </td>
                                                 <td class="px-6 py-4 font-medium text-emerald-700">{{ item.nomorSpd || item.nomor }}</td>
@@ -754,6 +794,11 @@
                             <div><label class="block text-sm font-medium text-gray-700 mb-1">Keterangan</label><input v-model="modalForm.keterangan" type="text" placeholder="Kantor / Poskesdes / lokasi awal" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
                         </template>
 
+                        <template v-else-if="modal.type === 'pertimbangan'">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">ID Pertimbangan</label><input v-model="modalForm.id" :readonly="modal.mode === 'edit'" required type="text" placeholder="P1" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Dasar/Pertimbangan</label><textarea v-model="modalForm.dasar_pertimbangan" required rows="3" placeholder="Surat tugas/undangan/ketentuan yang menjadi dasar perjalanan dinas" class="w-full p-2 border rounded-lg focus:ring-teal-500 focus:border-teal-500"></textarea></div>
+                        </template>
+
                         <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
                             <button type="button" @click="closeModal" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Batal</button>
                             <button type="submit" class="px-4 py-2 text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow transition-colors">Simpan Data</button>
@@ -812,10 +857,11 @@
                         { id: 'shs', name: 'Master SHS', icon: 'fas fa-money-bill-wave' },
                         { id: 'lokasi', name: 'Master Lokasi', icon: 'fas fa-map-marker-alt' },
                         { id: 'tempatBerangkat', name: 'Tempat Berangkat', icon: 'fas fa-location-arrow' },
+                        { id: 'pertimbangan', name: 'Pertimbangan', icon: 'fas fa-scale-balanced' },
                         { id: 'setting', name: 'Pengaturan', icon: 'fas fa-cogs' }
                     ],
                     db: {
-                        pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], tempatBerangkat: [], sppd: []
+                        pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], tempatBerangkat: [], pertimbangan: [], sppd: []
                     },
                     modal: { isOpen: false, type: '', mode: 'add', editId: null },
                     modalForm: {},
@@ -823,6 +869,8 @@
                     pegawaiSearchUtama: '',
                     activePegawaiDropdown: null,
                     activePengikutIndex: null,
+                    pertimbanganSearch: '',
+                    activePertimbanganDropdown: false,
                     absensiStatus: {},
                     absensiTanggal: '',
                     isCheckingAbsensi: false,
@@ -830,7 +878,7 @@
                     golonganOptions: ['I/a', 'I/b', 'I/c', 'I/d', 'II/a', 'II/b', 'II/c', 'II/d', 'III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'],
                     shsKriteriaOptions: ['Golongan I', 'Golongan II', 'Golongan III', 'Golongan IV', 'Pejabat Eselon IV', 'Pejabat Eselon III', 'Pejabat Eselon II', 'Non ASN / Tenaga Kontrak'],
                     formSppd: {
-                        nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', tempatBerangkatId: '', lokasiId: '', 
+                        nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', dasar_pertimbangan: '', maksud: '', tempatBerangkatId: '', lokasiId: '',
                         tglBerangkat: '', tglKembali: '', lamaHari: 0,
                         pegawaiUtama: '', pengikut: []
                     },
@@ -861,6 +909,10 @@
                 },
                 filteredPegawaiUtama() {
                     return this.filterPegawai(this.pegawaiSearchUtama);
+                },
+                filteredPertimbangan() {
+                    const q = (this.pertimbanganSearch || '').toLowerCase();
+                    return this.db.pertimbangan.filter(item => String(item.dasar_pertimbangan || '').toLowerCase().includes(q));
                 },
                 rekeningKegiatanOptions() {
                     return this.uniqueRekeningOptions(this.db.rekening, 'kode_rek_kegiatan', 'nama_kegiatan');
@@ -1023,6 +1075,7 @@
                         this.db.shs.push({id: 'S1', kriteria: 'Golongan III', uangHarian: 150000, penginapan: 300000});
                         this.db.lokasi.push({id: 'L1', tujuan: 'Dinas Kesehatan Kab. Sintang', jarak: 5, transport: 50000});
                         this.db.tempatBerangkat.push({id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default'});
+                        this.db.pertimbangan.push({id: 'P1', dasar_pertimbangan: 'DPA SKPD UPTD Puskesmas Tanjung Puri Tahun Anggaran 2026'});
                         localStorage.setItem('sppd_db', JSON.stringify(this.db));
                     }
                     
@@ -1052,7 +1105,7 @@
                 
 
                 normalizeDatabase() {
-                    const defaults = { pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], tempatBerangkat: [], sppd: [] };
+                    const defaults = { pegawai: [], jabatan: [], rekening: [], shs: [], lokasi: [], tempatBerangkat: [], pertimbangan: [], sppd: [] };
                     this.db = { ...defaults, ...this.db };
                     if (this.db.jabatan.length === 0) {
                         const uniqueJabatan = [...new Set(this.db.pegawai.map(p => p.jabatan).filter(Boolean))];
@@ -1070,15 +1123,22 @@
                     }));
                     this.db.lokasi = this.db.lokasi.map((item, index) => {
                         const values = Object.values(item || {});
-                        const tujuanKolomB = values.length > 1 ? values[1] : '';
                         return {
                             ...item,
-                            id: item.id || item.ID || item.Id || `L${index + 1}`,
-                            tujuan: item.tujuan || item.Tujuan || item.lokasi || item.Lokasi || item.nama_lokasi || item.namaLokasi || item['Nama Lokasi'] || item.tujuan_lokasi || item['Lokasi Tujuan'] || item.tempat_tujuan || item.daerah_tujuan || tujuanKolomB || '-',
-                            jarak: item.jarak || item.Jarak || item['Jarak (KM)'] || values[2] || '',
-                            transport: item.transport || item.Transport || item['Est. Transport'] || item['Estimasi Transport'] || values[3] || ''
+                            id: values[0] || item.id || item.ID || item.Id || `L${index + 1}`,
+                            tujuan: values[1] || item.tujuan || item.Tujuan || item.lokasi || item.Lokasi || item.nama_lokasi || item.namaLokasi || item['Nama Lokasi'] || item.tujuan_lokasi || item['Lokasi Tujuan'] || item.tempat_tujuan || item.daerah_tujuan || '-',
+                            jarak: values[2] || item.jarak || item.Jarak || item['Jarak (KM)'] || '',
+                            transport: values[3] || item.transport || item.Transport || item['Est. Transport'] || item['Estimasi Transport'] || ''
                         };
                     });
+                    this.db.pertimbangan = this.db.pertimbangan.map((item, index) => {
+                        const values = Object.values(item || {});
+                        return {
+                            ...item,
+                            id: values[0] || item.id || item.ID || item.Id || `P${index + 1}`,
+                            dasar_pertimbangan: values[1] || item.dasar_pertimbangan || item.dasarPertimbangan || item.pertimbangan || item.Pertimbangan || item['Dasar Pertimbangan'] || ''
+                        };
+                    }).filter(item => item.dasar_pertimbangan);
                     if (this.db.tempatBerangkat.length === 0) this.db.tempatBerangkat = [{ id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default' }];
                     this.db.sppd = this.db.sppd.map((item, index) => {
                         const tglBerangkat = this.normalizeDateValue(item.tglBerangkat);
@@ -1092,6 +1152,7 @@
                             tanggal_spt: this.normalizeDateValue(item.tanggal_spt || tglBerangkat),
                             tanggal_spd: this.normalizeDateValue(item.tanggal_spd || tglBerangkat),
                             tanggal_kwitansi: this.normalizeDateValue(item.tanggal_kwitansi || tglBerangkat),
+                            dasar_pertimbangan: item.dasar_pertimbangan || item.dasarPertimbangan || '',
                             createdAt: this.normalizeDateTimeValue(item.createdAt),
                             tempatBerangkatId: item.tempatBerangkatId || (this.db.tempatBerangkat[0]?.id || ''),
                             rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
@@ -1239,10 +1300,29 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 closePegawaiDropdown() {
                     setTimeout(() => { this.activePegawaiDropdown = null; this.activePengikutIndex = null; }, 150);
                 },
+                selectPertimbangan(item) {
+                    this.formSppd.dasar_pertimbangan = item.dasar_pertimbangan || '';
+                    this.pertimbanganSearch = item.dasar_pertimbangan || '';
+                    this.activePertimbanganDropdown = false;
+                },
+                closePertimbanganDropdown() {
+                    setTimeout(() => { this.activePertimbanganDropdown = false; }, 150);
+                },
+                addPertimbanganFromForm() {
+                    const value = String(this.pertimbanganSearch || this.formSppd.dasar_pertimbangan || '').trim();
+                    if (!value) { Swal.fire('Belum ada teks', 'Ketik dasar/pertimbangan terlebih dahulu.', 'warning'); return; }
+                    const exists = this.db.pertimbangan.some(item => String(item.dasar_pertimbangan || '').trim().toLowerCase() === value.toLowerCase());
+                    if (exists) { this.formSppd.dasar_pertimbangan = value; Swal.fire('Sudah ada', 'Dasar/pertimbangan ini sudah ada di pilihan.', 'info'); return; }
+                    const nextId = `P${this.db.pertimbangan.length + 1}`;
+                    this.db.pertimbangan.push({ id: nextId, dasar_pertimbangan: value });
+                    this.formSppd.dasar_pertimbangan = value;
+                    this.saveDB();
+                    Swal.fire('Tersimpan', 'Dasar/pertimbangan baru ditambahkan.', 'success');
+                },
                 // CRUD Modals
                 openModal(type) {
                     this.modal = { isOpen: true, type: type, mode: 'add', editId: null };
-                    this.modalForm = type === 'pegawai' ? { pangkat: '', golongan: '', jabatan: '' } : (type === 'rekening' ? { sumberDana: 'BOK' } : (type === 'shs' ? { kriteria: '' } : {}));
+                    this.modalForm = type === 'pegawai' ? { pangkat: '', golongan: '', jabatan: '' } : (type === 'rekening' ? { sumberDana: 'BOK' } : (type === 'shs' ? { kriteria: '' } : (type === 'pertimbangan' ? { id: `P${this.db.pertimbangan.length + 1}`, dasar_pertimbangan: '' } : {})));
                 },
                 closeModal() {
                     this.modal.isOpen = false;
@@ -1301,8 +1381,9 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     }
                 },
                 resetFormSppd() {
-                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', maksud: '', tempatBerangkatId: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
+                    this.formSppd = { nomor: '', nomorSpt: '', nomorSpd: '', tanggal_spt: '', tanggal_spd: '', tanggal_kwitansi: '', rekeningId: '', rekeningKegiatanKey: '', rekeningSubKegiatanKey: '', dasar_pertimbangan: '', maksud: '', tempatBerangkatId: '', lokasiId: '', tglBerangkat: '', tglKembali: '', lamaHari: 0, pegawaiUtama: '', pengikut: [] };
                     this.pegawaiSearchUtama = '';
+                    this.pertimbanganSearch = '';
                     this.absensiStatus = {};
                     this.absensiTanggal = '';
                     this.refreshNomorSurat();
@@ -1327,6 +1408,9 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     }
                     if(!this.formSppd.tempatBerangkatId) {
                         Swal.fire('Tempat berangkat belum dipilih', 'Pilih tempat berangkat dari master Tempat Berangkat.', 'warning'); return;
+                    }
+                    if(!this.formSppd.dasar_pertimbangan) {
+                        Swal.fire('Dasar/Pertimbangan belum diisi', 'Pilih atau tambahkan dasar/pertimbangan perjalanan dinas.', 'warning'); return;
                     }
                     if(!this.formSppd.tanggal_spt || !this.formSppd.tanggal_spd || !this.formSppd.tanggal_kwitansi) {
                         Swal.fire('Tanggal surat belum lengkap', 'Isi tanggal SPT, tanggal SPD, dan tanggal kwitansi.', 'warning'); return;
@@ -1374,16 +1458,17 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                 },
                 exportExcelSPPD() {
                     let csvContent = "data:text/csv;charset=utf-8,";
-                    csvContent += "No SPT,No SPD,Tanggal SPT,Tanggal SPD,Tanggal Kwitansi,Pegawai Utama,Tempat Berangkat,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Maksud,Laporan Hasil\n";
+                    csvContent += "No SPT,No SPD,Tanggal SPT,Tanggal SPD,Tanggal Kwitansi,Pegawai Utama,Tempat Berangkat,Tujuan,Tanggal Berangkat,Tanggal Kembali,Lama Hari,Dasar Pertimbangan,Maksud,Laporan Hasil\n";
                     
                     this.db.sppd.forEach(row => {
                         const utama = this.getPegawaiName(row.pegawaiUtama);
                         const lokasi = this.getLokasiName(row.lokasiId);
                         const tempatBerangkat = this.getTempatBerangkatName(row.tempatBerangkatId);
+                        const dasar = `"${(row.dasar_pertimbangan || '').replace(/"/g, '""')}"`;
                         const maksud = `"${(row.maksud || '').replace(/"/g, '""')}"`;
                         const laporan = `"${(row.laporanHasil || '').replace(/"/g, '""')}"`;
                         
-                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${row.tanggal_spt || row.tglBerangkat}","${row.tanggal_spd || row.tglBerangkat}","${row.tanggal_kwitansi || row.tglBerangkat}","${utama}","${tempatBerangkat}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${maksud},${laporan}`;
+                        let rowData = `"${row.nomorSpt || row.nomor}","${row.nomorSpd || row.nomor}","${row.tanggal_spt || row.tglBerangkat}","${row.tanggal_spd || row.tglBerangkat}","${row.tanggal_kwitansi || row.tglBerangkat}","${utama}","${tempatBerangkat}","${lokasi}","${row.tglBerangkat}","${row.tglKembali}","${row.lamaHari}",${dasar},${maksud},${laporan}`;
                         csvContent += rowData + "\n";
                     });
                     
@@ -1440,7 +1525,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             this.isSyncing = true;
                             // Inject dummy data structure minimally if entirely empty so headers generate
                             if (this.db.sppd.length === 0) {
-                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', tanggal_spt: '-', tanggal_spd: '-', tanggal_kwitansi: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', maksud: '-', tempatBerangkatId: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
+                                this.db.sppd.push({id: 'DUMMY', nomor: '-', nomorSpt: '-', nomorSpd: '-', tanggal_spt: '-', tanggal_spd: '-', tanggal_kwitansi: '-', rekeningId: '-', rekeningKegiatanKey: '-', rekeningSubKegiatanKey: '-', dasar_pertimbangan: '-', maksud: '-', tempatBerangkatId: '-', lokasiId: '-', tglBerangkat: '-', tglKembali: '-', lamaHari: 0, pegawaiUtama: '-', pengikut: [], laporanHasil: ''});
                             }
                             
                             google.script.run
@@ -1591,7 +1676,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
 
                         doc.setFontSize(11);
                         doc.text("Dasar", 20, y); doc.text(":", 45, y);
-                        let dasarText = doc.splitTextToSize("DPA SKPD UPTD Puskesmas Tanjung Puri Tahun Anggaran 2026", pageWidth - 55);
+                        let dasarText = doc.splitTextToSize(sppdData.dasar_pertimbangan || 'DPA SKPD UPTD Puskesmas Tanjung Puri Tahun Anggaran 2026', pageWidth - 55);
                         doc.text(dasarText, 50, y);
                         y += 10;
                         
