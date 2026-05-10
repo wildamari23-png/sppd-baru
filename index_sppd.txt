@@ -199,14 +199,18 @@
                                             <p class="text-xs text-gray-500">Master jabatan</p>
                                             <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
-                                        <div class="p-4 rounded-xl bg-white border border-blue-100">
-                                            <p class="text-xs text-gray-500">Perjalanan aktif</p>
-                                            <p class="text-2xl font-black text-blue-700">{{ activeTrips }}</p>
-                                        </div>
                                         <div class="p-4 rounded-xl bg-white border border-amber-100">
                                             <p class="text-xs text-gray-500">Master jabatan</p>
                                             <p class="text-2xl font-black text-amber-700">{{ db.jabatan.length }}</p>
                                         </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -319,6 +323,9 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'lokasi'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ getLokasiName(item.lokasiId) }}</td><td class="px-6 py-4">{{ item.jarak }}</td><td class="px-6 py-4">Rp {{ formatNumber(item.transport) }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -922,6 +929,7 @@
                     this.isSyncing = true;
                     google.script.run
                         .withSuccessHandler((response) => {
+                            response = response || {};
                             if (response.db && Object.keys(response.db).length > 0) {
                                 this.db = { ...this.db, ...response.db }; // Merge Data
                             }
@@ -981,6 +989,27 @@
                 },
                 formatNumber(num) {
                     return Number(num).toLocaleString('id-ID');
+                },
+                normalizeDateValue(value) {
+                    if (!value) return '';
+                    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+                    const text = String(value).trim();
+                    if (!text || text === '-') return '';
+                    const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+                    const localMatch = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+                    if (localMatch) return `${localMatch[3]}-${String(localMatch[2]).padStart(2, '0')}-${String(localMatch[1]).padStart(2, '0')}`;
+                    const parsed = new Date(text);
+                    return Number.isNaN(parsed.getTime()) ? text : parsed.toISOString().slice(0, 10);
+                },
+                formatDisplayDate(value) {
+                    const normalized = this.normalizeDateValue(value);
+                    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (!match) return value || '';
+                    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                    const monthIndex = Number(match[2]) - 1;
+                    if (monthIndex < 0 || monthIndex > 11) return value || '';
+                    return `${match[3]} ${months[monthIndex]} ${match[1]}`;
                 },
                 initLocalDB() {
                     const localData = localStorage.getItem('sppd_db');
@@ -1046,18 +1075,24 @@
                         tujuan: item.tujuan || item.lokasi || item.nama_lokasi || item.tujuan_lokasi || item.tempat_tujuan || item.daerah_tujuan || '-'
                     }));
                     if (this.db.tempatBerangkat.length === 0) this.db.tempatBerangkat = [{ id: 'TB1', tempat: 'UPTD Puskesmas Tanjung Puri', keterangan: 'Default' }];
-                    this.db.sppd = this.db.sppd.map((item, index) => ({
-                        ...item,
-                        nomorSpt: item.nomorSpt || item.nomor || this.generateNomorSurat('spt', item.tglBerangkat, index + 1),
-                        nomorSpd: item.nomorSpd || item.nomor || this.generateNomorSurat('spd', item.tglBerangkat, index + 1),
-                        tanggal_spt: item.tanggal_spt || item.tglBerangkat || '',
-                        tanggal_spd: item.tanggal_spd || item.tglBerangkat || '',
-                        tanggal_kwitansi: item.tanggal_kwitansi || item.tglBerangkat || '',
-                        tempatBerangkatId: item.tempatBerangkatId || (this.db.tempatBerangkat[0]?.id || ''),
-                        rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
-                        rekeningSubKegiatanKey: item.rekeningSubKegiatanKey || this.getRekeningKeysById(item.rekeningId).subKegiatanKey,
-                        pengikut: Array.isArray(item.pengikut) ? item.pengikut : []
-                    }));
+                    this.db.sppd = this.db.sppd.map((item, index) => {
+                        const tglBerangkat = this.normalizeDateValue(item.tglBerangkat);
+                        const tglKembali = this.normalizeDateValue(item.tglKembali);
+                        return {
+                            ...item,
+                            tglBerangkat,
+                            tglKembali,
+                            nomorSpt: item.nomorSpt || item.nomor || this.generateNomorSurat('spt', tglBerangkat, index + 1),
+                            nomorSpd: item.nomorSpd || item.nomor || this.generateNomorSurat('spd', tglBerangkat, index + 1),
+                            tanggal_spt: this.normalizeDateValue(item.tanggal_spt || tglBerangkat),
+                            tanggal_spd: this.normalizeDateValue(item.tanggal_spd || tglBerangkat),
+                            tanggal_kwitansi: this.normalizeDateValue(item.tanggal_kwitansi || tglBerangkat),
+                            tempatBerangkatId: item.tempatBerangkatId || (this.db.tempatBerangkat[0]?.id || ''),
+                            rekeningKegiatanKey: item.rekeningKegiatanKey || this.getRekeningKeysById(item.rekeningId).kegiatanKey,
+                            rekeningSubKegiatanKey: item.rekeningSubKegiatanKey || this.getRekeningKeysById(item.rekeningId).subKegiatanKey,
+                            pengikut: Array.isArray(item.pengikut) ? item.pengikut : []
+                        };
+                    });
                 },
                 rekeningKey(kode, nama) {
                     return `${kode || ''}||${nama || ''}`;
@@ -1496,6 +1531,11 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         const lokasi = this.db.lokasi.find(l => String(l.id) === String(sppdData.lokasiId));
                         const tempatBerangkat = this.getTempatBerangkatName(sppdData.tempatBerangkatId);
                         const rekening = this.getRekeningInfo(sppdData);
+                        const tanggalSpt = this.formatDisplayDate(sppdData.tanggal_spt || sppdData.tglBerangkat);
+                        const tanggalSpd = this.formatDisplayDate(sppdData.tanggal_spd || sppdData.tglBerangkat);
+                        const tanggalKwitansi = this.formatDisplayDate(sppdData.tanggal_kwitansi || sppdData.tglBerangkat);
+                        const tglBerangkatDisplay = this.formatDisplayDate(sppdData.tglBerangkat);
+                        const tglKembaliDisplay = this.formatDisplayDate(sppdData.tglKembali);
                         
                         const drawKopSurat = () => {
                             let currentY = y;
@@ -1525,7 +1565,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         const printTtd = (yPos, tanggalSurat = sppdData.tglBerangkat) => {
                             doc.setFont("times", "normal");
                             doc.text("Dikeluarkan di : Sintang", pageWidth - 70, yPos);
-                            doc.text(`Pada tanggal   : ${tanggalSurat || sppdData.tglBerangkat}`, pageWidth - 70, yPos + 5);
+                            doc.text(`Pada tanggal   : ${tanggalSurat || tglBerangkatDisplay}`, pageWidth - 70, yPos + 5);
                             doc.setFont("times", "bold");
                             doc.text("KEPALA UPTD PUSKESMAS", pageWidth - 70, yPos + 12);
                             doc.text("TANJUNG PURI", pageWidth - 70, yPos + 17);
@@ -1574,7 +1614,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         y += (maksudLines.length * 5) + 5;
 
                         doc.text("Waktu", 20, y); doc.text(":", 45, y);
-                        doc.text(`${sppdData.lamaHari} Hari (${sppdData.tglBerangkat} s/d ${sppdData.tglKembali})`, 50, y);
+                        doc.text(`${sppdData.lamaHari} Hari (${tglBerangkatDisplay} s/d ${tglKembaliDisplay})`, 50, y);
                         y += 10;
                         doc.text("Berangkat", 20, y); doc.text(":", 45, y);
                         doc.text(tempatBerangkat, 50, y);
@@ -1583,7 +1623,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         doc.text(lokasi ? lokasi.tujuan : '-', 50, y);
                         y += 20;
 
-                        printTtd(y, sppdData.tanggal_spt || sppdData.tglBerangkat);
+                        printTtd(y, tanggalSpt);
 
                         // ----------------- DOKUMEN 2: SPD -----------------
                         doc.addPage(); y = margin; drawKopSurat();
@@ -1600,7 +1640,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                             ["4", "Maksud Perjalanan Dinas", sppdData.maksud],
                             ["5", "Alat angkutan yang dipergunakan", "Kendaraan Umum / Dinas"],
                             ["6", "a. Tempat berangkat\nb. Tempat tujuan", `${tempatBerangkat}\n${lokasi?lokasi.tujuan:''}`],
-                            ["7", "a. Lama perjalanan dinas\nb. Tanggal berangkat\nc. Tanggal kembali", `${sppdData.lamaHari} Hari\n${sppdData.tglBerangkat}\n${sppdData.tglKembali}`],
+                            ["7", "a. Lama perjalanan dinas\nb. Tanggal berangkat\nc. Tanggal kembali", `${sppdData.lamaHari} Hari\n${tglBerangkatDisplay}\n${tglKembaliDisplay}`],
                             ["8", "Pembebanan Anggaran\na. Instansi\nb. Rekening", `Puskesmas Tanjung Puri\n${this.getRekeningLabel(rekening)}`]
                         ];
 
@@ -1611,7 +1651,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         });
 
                         y = doc.lastAutoTable.finalY + 15;
-                        printTtd(y, sppdData.tanggal_spd || sppdData.tglBerangkat);
+                        printTtd(y, tanggalSpd);
 
                         // ----------------- DOKUMEN 3: KWITANSI -----------------
                         doc.addPage(); y = margin; drawKopSurat();
@@ -1646,7 +1686,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         doc.text(utama ? utama.nama : '', 20, y+30);
                         doc.text(`NIP. ${utama ? utama.nip : ''}`, 20, y+35);
                         
-                        doc.text(`Lunas Dibayar Tanggal : ${sppdData.tanggal_kwitansi || '.........................'}`, pageWidth - 80, y);
+                        doc.text(`Lunas Dibayar Tanggal : ${tanggalKwitansi || '.........................'}`, pageWidth - 80, y);
                         doc.text("Bendahara Pengeluaran,", pageWidth - 80, y+5);
                         doc.text("(.........................................)", pageWidth - 80, y+30);
 
@@ -1666,7 +1706,7 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         y += (textMaksud.length * 5) + 2;
 
                         doc.text("3.", 20, y); doc.text("Waktu Pelaksanaan", 25, y); doc.text(":", 65, y); 
-                        doc.text(`${sppdData.lamaHari} Hari (${sppdData.tglBerangkat} s/d ${sppdData.tglKembali})`, 70, y);
+                        doc.text(`${sppdData.lamaHari} Hari (${tglBerangkatDisplay} s/d ${tglKembaliDisplay})`, 70, y);
                         y += 7;
 
                         doc.text("4.", 20, y); doc.text("Nama Petugas", 25, y); doc.text(":", 65, y); 

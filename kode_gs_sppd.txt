@@ -16,6 +16,18 @@ function getDbKey_(sheetName) {
   return sheetName.toLowerCase();
 }
 
+
+function serializeSheetValue_(value, header) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    const key = String(header || '').toLowerCase();
+    if (key.indexOf('tanggal') !== -1 || key.indexOf('tgl') !== -1 || key === 'createdat') {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  return value;
+}
+
 // ==========================================
 // FUNGSI MEMUAT DATA DARI GOOGLE SHEETS
 // ==========================================
@@ -34,7 +46,7 @@ function loadAllData() {
         for (let i = 1; i < data.length; i++) {
           let obj = {};
           for (let j = 0; j < headers.length; j++) {
-            let val = data[i][j];
+            let val = serializeSheetValue_(data[i][j], headers[j]);
             // Jika data berupa JSON String (seperti array pengikut), parsing kembali
             try {
                if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
@@ -222,6 +234,8 @@ function getDefaultTemplateDefinitions_() {
 }
 
 function buildTemplateData_(sppd, db, settings) {
+  db = db || {};
+  settings = settings || {};
   const pegawai = db.pegawai || [];
   const lokasi = db.lokasi || [];
   const tempatBerangkat = db.tempatBerangkat || [];
@@ -245,11 +259,11 @@ function buildTemplateData_(sppd, db, settings) {
     KEPALA_NIP: settings.kepalaNip || '',
     NOMOR_SPT: sppd.nomorSpt || sppd.nomor || '',
     NOMOR_SPD: sppd.nomorSpd || sppd.nomor || '',
-    TANGGAL_SPT: sppd.tanggal_spt || sppd.tglBerangkat || '',
-    TANGGAL_SPD: sppd.tanggal_spd || sppd.tglBerangkat || '',
-    TANGGAL_KWITANSI: sppd.tanggal_kwitansi || sppd.tglBerangkat || '',
-    TGL_BERANGKAT: sppd.tglBerangkat || '',
-    TGL_KEMBALI: sppd.tglKembali || '',
+    TANGGAL_SPT: formatDisplayDate_(sppd.tanggal_spt || sppd.tglBerangkat),
+    TANGGAL_SPD: formatDisplayDate_(sppd.tanggal_spd || sppd.tglBerangkat),
+    TANGGAL_KWITANSI: formatDisplayDate_(sppd.tanggal_kwitansi || sppd.tglBerangkat),
+    TGL_BERANGKAT: formatDisplayDate_(sppd.tglBerangkat),
+    TGL_KEMBALI: formatDisplayDate_(sppd.tglKembali),
     LAMA_HARI: String(sppd.lamaHari || ''),
     MAKSUD: sppd.maksud || '',
     TEMPAT_BERANGKAT: berangkat.tempat || 'UPTD Puskesmas Tanjung Puri',
@@ -262,6 +276,17 @@ function buildTemplateData_(sppd, db, settings) {
     TOTAL_BIAYA: formatNumber_(total),
     LAPORAN_HASIL: sppd.laporanHasil || 'Belum ada uraian laporan kegiatan yang diinput.'
   };
+}
+
+
+function formatDisplayDate_(value) {
+  const key = normalizeDateKey_(value);
+  const match = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value ? String(value) : '';
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const monthIndex = Number(match[2]) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return value ? String(value) : '';
+  return match[3] + ' ' + months[monthIndex] + ' ' + match[1];
 }
 
 function fillTemplate_(text, data) {
