@@ -200,6 +200,18 @@
                                             <p class="text-xs text-gray-500">Realisasi rekening</p>
                                             <p class="text-2xl font-black text-amber-700">Rp {{ formatNumber(totalRealisasiRekening) }}</p>
                                         </div>
+                                        <div class="p-4 rounded-xl bg-white border border-amber-100">
+                                            <p class="text-xs text-gray-500">Realisasi rekening</p>
+                                            <p class="text-2xl font-black text-amber-700">Rp {{ formatNumber(totalRealisasiRekening) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modern-card rounded-2xl p-5">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-2">Nomor Berikutnya</h3>
+                                    <p class="text-xs text-gray-500 mb-3">Preview nomor otomatis hari ini.</p>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="p-3 rounded-xl bg-teal-50 text-teal-800 font-semibold">{{ generateNomorSurat('spt') }}</div>
+                                        <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-semibold">{{ generateNomorSurat('spd') }}</div>
                                     </div>
                                 </div>
                                 <div class="modern-card rounded-2xl p-5">
@@ -311,6 +323,12 @@
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'tempatBerangkat'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
+                                                </template>
+                                                <template v-else-if="currentView === 'pertimbangan'">
+                                                    <td class="px-6 py-4 font-medium text-gray-900">{{ item.id }}</td><td class="px-6 py-4">{{ item.dasar_pertimbangan }}</td>
                                                 </template>
                                                 <template v-else-if="currentView === 'tempatBerangkat'">
                                                     <td class="px-6 py-4 font-medium text-gray-900">{{ item.tempat }}</td><td class="px-6 py-4">{{ item.keterangan || '-' }}</td>
@@ -1309,21 +1327,22 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                     const date = dateValue ? new Date(dateValue) : new Date();
                     return Number.isNaN(date.getTime()) ? new Date().getFullYear() : date.getFullYear();
                 },
-                getNextNomorUrut(dateValue) {
+                getNextNomorUrut(dateValue, type = 'spt') {
                     const year = this.getYearFromDate(dateValue);
-                    return this.db.sppd.filter(item => this.getYearFromDate(item.tglBerangkat || item.createdAt) === year && item.id !== 'DUMMY').length + 1;
+                    const rows = this.db.sppd.filter(item => this.getYearFromDate(item.tglBerangkat || item.createdAt) === year && item.id !== 'DUMMY');
+                    if (type !== 'spd') return rows.length + 1;
+                    return rows.reduce((total, item) => total + 1 + ((item.pengikut || []).length || 0), 0) + 1;
                 },
                 generateNomorSurat(type, dateValue, sequence = null) {
-                    const urut = String(sequence || this.getNextNomorUrut(dateValue)).padStart(3, '0');
+                    const urut = String(sequence || this.getNextNomorUrut(dateValue, type)).padStart(3, '0');
                     const romawi = this.getRomanMonth(dateValue);
                     const tahun = this.getYearFromDate(dateValue);
                     return type === 'spt' ? `400.7/${urut}/Tj-Puri/${romawi}/${tahun}` : `${urut}/SPD/PKM-TP/${romawi}/${tahun}`;
                 },
                 refreshNomorSurat() {
                     const dateValue = this.formSppd.tglBerangkat || new Date().toISOString().slice(0, 10);
-                    const sequence = this.getNextNomorUrut(dateValue);
-                    this.formSppd.nomorSpt = this.generateNomorSurat('spt', dateValue, sequence);
-                    this.formSppd.nomorSpd = this.generateNomorSurat('spd', dateValue, sequence);
+                    this.formSppd.nomorSpt = this.generateNomorSurat('spt', dateValue, this.getNextNomorUrut(dateValue, 'spt'));
+                    this.formSppd.nomorSpd = this.generateNomorSurat('spd', dateValue, this.getNextNomorUrut(dateValue, 'spd'));
                     this.formSppd.nomor = this.formSppd.nomorSpt;
                 },
                 filterPegawai(query = '') {

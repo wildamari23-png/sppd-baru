@@ -197,11 +197,14 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, prin
   const body = output.getBody();
   body.clear();
 
+  const kopLogoBlob = createImageBlobFromDataUrl_(settings.kopLogo, 'kop-logo.png');
   ['spt', 'spd', 'kwitansi', 'laporan'].forEach((key, index) => {
     const templateId = ensured.templateIds[key];
     const templateDoc = DocumentApp.openById(templateId);
     if (index > 0) body.appendPageBreak();
+    const sectionStartIndex = body.getNumChildren();
     appendBodyElements_(body, templateDoc.getBody());
+    insertKopLogo_(body, sectionStartIndex, kopLogoBlob);
   });
 
   insertSptEmployeeTable_(body, data.__PEGAWAI_SPT || []);
@@ -264,6 +267,28 @@ function fillBodyPlaceholders_(body, data) {
     if (key.indexOf('__') === 0) return;
     body.replaceText('\\{\\{' + key + '\\}\\}', normalizeDocumentText_(data[key]));
   });
+}
+
+function createImageBlobFromDataUrl_(dataUrl, name) {
+  const text = String(dataUrl || '').trim();
+  const match = text.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) return null;
+  try {
+    return Utilities.newBlob(Utilities.base64Decode(match[2]), match[1], name || 'image.png');
+  } catch (error) {
+    console.error('Gagal membaca logo kop: ' + error.message);
+    return null;
+  }
+}
+
+function insertKopLogo_(body, childIndex, logoBlob) {
+  if (!logoBlob) return;
+  try {
+    const image = body.insertImage(Math.max(0, childIndex), logoBlob.copyBlob());
+    image.setWidth(58).setHeight(58);
+  } catch (error) {
+    console.error('Gagal menyisipkan logo kop: ' + error.message);
+  }
 }
 
 function insertSptEmployeeTable_(body, people) {
@@ -347,30 +372,46 @@ function insertSpdEmployeeTable_(body, people) {
 }
 
 function buildSpdEmployeeRows_(people) {
-  const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
-  return (people.length ? people : [{}]).map((p, index) => {
+  const rows = [[
+    'No',
+    'Nama / NIP',
+    'Pangkat / Gol.',
+    'Jabatan',
+    'Nomor SPD'
+  ]];
+  (people.length ? people : [{}]).forEach((p, index) => {
     const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(' / ');
-    return [
-      safeCellText_(letters[index] ? letters[index] + '.' : (index + 1) + '.'),
+    rows.push([
+      safeCellText_(String(index + 1) + '.'),
       safeCellText_([p.nama, p.nip ? 'NIP. ' + p.nip : ''].filter(Boolean).join('\n')),
       safeCellText_(pangkatGol || '-'),
       safeCellText_(p.jabatan || '-'),
       safeCellText_(p.nomorSpd || '-')
-    ];
+    ]);
   });
+  return rows;
 }
 
 function styleSpdEmployeeTable_(table) {
-  table.setBorderWidth(0);
+  table.setBorderWidth(0.5);
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-    row.getCell(0).setWidth(24);
-    row.getCell(1).setWidth(170);
-    row.getCell(2).setWidth(120);
-    row.getCell(3).setWidth(120);
-    row.getCell(4).setWidth(130);
+    row.getCell(0).setWidth(18);
+    row.getCell(1).setWidth(142);
+    row.getCell(2).setWidth(82);
+    row.getCell(3).setWidth(118);
+    row.getCell(4).setWidth(128);
     for (let c = 0; c < row.getNumCells(); c++) {
-      row.getCell(c).setPaddingTop(1).setPaddingBottom(1).setPaddingLeft(2).setPaddingRight(2);
+      const cell = row.getCell(c);
+      cell.setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(1).setPaddingRight(1);
+      cell.editAsText().setFontSize(8);
+      if (r === 0) cell.editAsText().setBold(true);
+      for (let i = 0; i < cell.getNumChildren(); i++) {
+        const child = cell.getChild(i);
+        if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
+          child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
+        }
+      }
     }
   }
 }
@@ -472,7 +513,7 @@ function buildTemplateData_(sppd, db, settings) {
     KEPALA_NIP: settings.kepalaNip || '',
     KEPALA_JABATAN: formatJabatanGolongan_(settings.kepalaJabatan || 'PEMBINA', settings.kepalaGolongan || 'IV/a'),
     NOMOR_SPT: sppd.nomorSpt || sppd.nomor || '',
-    NOMOR_SPD: sppd.nomorSpd || sppd.nomor || '',
+    NOMOR_SPD: normalizeBaseSpdNumber_(sppd.nomorSpd || sppd.nomor || ''),
     TANGGAL_SPT: formatDisplayDate_(sppd.tanggal_spt || sppd.tglBerangkat),
     TANGGAL_SPD: formatDisplayDate_(sppd.tanggal_spd || sppd.tglBerangkat),
     TANGGAL_KWITANSI: formatDisplayDate_(sppd.tanggal_kwitansi || sppd.tglBerangkat),
@@ -498,10 +539,17 @@ function buildTemplateData_(sppd, db, settings) {
 }
 
 
+function normalizeBaseSpdNumber_(baseNumber) {
+  return String(baseNumber || '').trim().replace(/-\d+$/, '');
+}
+
 function buildPersonSpdNumber_(baseNumber, index) {
-  const suffix = String(index + 1).padStart(2, '0');
-  if (!baseNumber) return suffix + '/SPD';
-  return String(baseNumber) + '-' + suffix;
+  const text = normalizeBaseSpdNumber_(baseNumber);
+  const increment = Number(index || 0);
+  if (!text) return String(increment + 1).padStart(3, '0') + '/SPD';
+  const match = text.match(/^(\d+)(\/SPD\/.+)$/i);
+  if (!match) return text;
+  return String(Number(match[1]) + increment).padStart(match[1].length, '0') + match[2];
 }
 
 function formatJabatanGolongan_(jabatan, golongan) {
