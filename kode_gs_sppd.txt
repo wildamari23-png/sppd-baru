@@ -188,22 +188,23 @@ function ensureDocumentTemplates(settingsPayload) {
   };
 }
 
-function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload) {
+function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, printOptions) {
   const settings = settingsPayload || {};
   const ensured = ensureDocumentTemplates(settings);
   const data = buildTemplateData_(sppdData || {}, dbPayload || {}, settings);
   const output = DocumentApp.create('Dokumen SPPD - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
+  applyDocumentLayout_(output, printOptions || {});
   const body = output.getBody();
   body.clear();
 
   ['spt', 'spd', 'kwitansi', 'laporan'].forEach((key, index) => {
     const templateId = ensured.templateIds[key];
     const templateDoc = DocumentApp.openById(templateId);
-    const text = fillTemplate_(templateDoc.getBody().getText(), data);
     if (index > 0) body.appendPageBreak();
-    text.split('\n').forEach(line => body.appendParagraph(line));
+    appendBodyElements_(body, templateDoc.getBody());
   });
 
+  fillBodyPlaceholders_(body, data);
   output.saveAndClose();
   const pdfBlob = DriveApp.getFileById(output.getId()).getAs(MimeType.PDF).setName(output.getName() + '.pdf');
   const pdfFile = DriveApp.createFile(pdfBlob);
@@ -213,6 +214,53 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload) {
     docUrl: 'https://docs.google.com/document/d/' + output.getId() + '/edit',
     pdfUrl: pdfFile.getUrl()
   };
+}
+
+
+function appendBodyElements_(targetBody, sourceBody) {
+  const count = sourceBody.getNumChildren();
+  for (let i = 0; i < count; i++) {
+    const child = sourceBody.getChild(i);
+    const copy = child.copy();
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      targetBody.appendParagraph(copy.asParagraph());
+    } else if (type === DocumentApp.ElementType.TABLE) {
+      targetBody.appendTable(copy.asTable());
+    } else if (type === DocumentApp.ElementType.LIST_ITEM) {
+      targetBody.appendListItem(copy.asListItem());
+    } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
+      targetBody.appendHorizontalRule();
+    } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
+      targetBody.appendPageBreak();
+    } else {
+      targetBody.appendParagraph(child.getText ? child.getText() : '');
+    }
+  }
+}
+
+function fillBodyPlaceholders_(body, data) {
+  Object.keys(data || {}).forEach(key => {
+    body.replaceText('\\{\\{' + key + '\\}\\}', String(data[key] === undefined || data[key] === null ? '' : data[key]));
+  });
+}
+
+function applyDocumentLayout_(doc, options) {
+  const body = doc.getBody();
+  const mmToPt = mm => Number(mm || 0) * 72 / 25.4;
+  const sizes = {
+    f4: [215.9, 330.2],
+    a4: [210, 297],
+    legal: [215.9, 355.6]
+  };
+  const selected = sizes[String(options.paperSize || 'f4').toLowerCase()] || sizes.f4;
+  const isLandscape = options.orientation === 'landscape';
+  body.setPageWidth(mmToPt(isLandscape ? selected[1] : selected[0]));
+  body.setPageHeight(mmToPt(isLandscape ? selected[0] : selected[1]));
+  body.setMarginTop(mmToPt(options.marginTop || 15));
+  body.setMarginRight(mmToPt(options.marginRight || 15));
+  body.setMarginBottom(mmToPt(options.marginBottom || 15));
+  body.setMarginLeft(mmToPt(options.marginLeft || 15));
 }
 
 function getDefaultTemplateDefinitions_() {
