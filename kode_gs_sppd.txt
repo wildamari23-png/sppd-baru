@@ -219,7 +219,7 @@ function getDefaultTemplateDefinitions_() {
   return {
     spt: {
       name: 'SPT',
-      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERINTAH TUGAS\nNomor: {{NOMOR_SPT}}\nTanggal Surat: {{TANGGAL_SPT}}\nDasar/Pertimbangan: {{DASAR_PERTIMBANGAN}}\n\nYang bertanda tangan di bawah ini menugaskan:\n{{DAFTAR_PEGAWAI}}\n\nUntuk: {{MAKSUD}}\nWaktu: {{LAMA_HARI}} hari ({{TGL_BERANGKAT}} s/d {{TGL_KEMBALI}})\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTujuan: {{TUJUAN}}\n\nSintang, {{TANGGAL_SPT}}\nKepala UPTD Puskesmas\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+      content: '{{KOP_UPTD}}\n{{KOP_ALAMAT}}\nEmail : {{KOP_EMAIL}}\nTelp. {{KOP_TELP}}\n\nS U R A T   P E R I N T A H   T U G A S\nNOMOR : {{NOMOR_SPT}}\n\nDasar / Pertimbangan :\n{{DASAR_PERTIMBANGAN}}\n\nMEMERINTAHKAN\nKepada :\n{{DAFTAR_PEGAWAI_SPT}}\n\nUntuk :\n{{MAKSUD}}\n\nTanggal Berangkat : {{TGL_BERANGKAT}}\nTanggal Kembali   : {{TGL_KEMBALI}}\nSumber Dana       : {{SUMBER_DANA}}\n\nDikeluarkan di : Sintang\nPada tanggal   : {{TANGGAL_SPT}}\n\nKepala UPTD Puskesmas Tanjung Puri\n\n\n\n{{KEPALA_NAMA}}\n{{KEPALA_JABATAN}}\nNIP. {{KEPALA_NIP}}'
     },
     spd: {
       name: 'SPD',
@@ -252,14 +252,23 @@ function buildTemplateData_(sppd, db, settings) {
   const uangHarian = Number((shs[0] || {}).uangHarian || 0);
   const transport = Number(tujuan.transport || 0);
   const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
+  const daftarPegawaiSpt = people.map((p, i) => {
+    return (i + 1) + '. Nama          : ' + (p.nama || '-') + '\n' +
+      '   Pangkat/Gol.  : ' + [p.pangkat, p.golongan].filter(Boolean).join(' / ') + '\n' +
+      '   Jabatan       : ' + (p.jabatan || '-');
+  }).join('\n');
+  const sumberDana = [rekening.sumberDana, rekening.nama_kegiatan || rekening.nama_sub_Kegiatan || rekening.nama_objek_belanja].filter(Boolean).join(' - ');
 
   return {
     KOP_INSTANSI: settings.kopInstansi || '',
     KOP_DINAS: settings.kopDinas || '',
     KOP_UPTD: settings.kopUptd || '',
     KOP_ALAMAT: settings.kopAlamat || '',
+    KOP_EMAIL: settings.kopEmail || 'pkmtpsintang@gmail.com',
+    KOP_TELP: settings.kopTelp || '(0565) 21550 Hotline SMS 081256262764 Kode Pos 78611',
     KEPALA_NAMA: settings.kepalaNama || '',
     KEPALA_NIP: settings.kepalaNip || '',
+    KEPALA_JABATAN: settings.kepalaJabatan || 'PEMBINA',
     NOMOR_SPT: sppd.nomorSpt || sppd.nomor || '',
     NOMOR_SPD: sppd.nomorSpd || sppd.nomor || '',
     TANGGAL_SPT: formatDisplayDate_(sppd.tanggal_spt || sppd.tglBerangkat),
@@ -274,6 +283,8 @@ function buildTemplateData_(sppd, db, settings) {
     TUJUAN: tujuan.tujuan || tujuan.lokasi || tujuan.nama_lokasi || tujuan.tujuan_lokasi || '-',
     PEGAWAI_UTAMA: utama.nama || '-',
     DAFTAR_PEGAWAI: people.map((p, i) => (i + 1) + '. ' + (p.nama || '-') + ' - ' + (p.jabatan || '') + ' / NIP. ' + (p.nip || '')).join('\n'),
+    DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
+    SUMBER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
     TRANSPORT: formatNumber_(transport),
