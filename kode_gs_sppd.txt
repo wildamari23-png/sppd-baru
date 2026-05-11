@@ -245,22 +245,67 @@ function appendBodyElements_(targetBody, sourceBody) {
   const count = sourceBody.getNumChildren();
   for (let i = 0; i < count; i++) {
     const child = sourceBody.getChild(i);
-    const copy = child.copy();
-    const type = child.getType();
-    if (type === DocumentApp.ElementType.PARAGRAPH) {
-      appendSafeParagraph_(targetBody, copy.asParagraph());
-    } else if (type === DocumentApp.ElementType.TABLE) {
-      targetBody.appendTable(copy.asTable());
-    } else if (type === DocumentApp.ElementType.INLINE_IMAGE) {
-      targetBody.appendImage(copy.asInlineImage());
-    } else if (type === DocumentApp.ElementType.LIST_ITEM) {
-      appendSafeListItem_(targetBody, copy.asListItem());
-    } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
-      targetBody.appendHorizontalRule();
-    } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
-      targetBody.appendPageBreak();
-    } else if (child.getText && child.getText()) {
-      appendSafeParagraph_(targetBody, child.getText());
+    appendDocumentElement_(targetBody, child);
+  }
+}
+
+function appendDocumentElement_(targetContainer, sourceElement) {
+  const copy = sourceElement.copy();
+  const type = sourceElement.getType();
+  if (type === DocumentApp.ElementType.PARAGRAPH) {
+    appendSafeParagraph_(targetContainer, copy.asParagraph());
+  } else if (type === DocumentApp.ElementType.TABLE) {
+    appendSafeTable_(targetContainer, sourceElement.asTable());
+  } else if (type === DocumentApp.ElementType.LIST_ITEM) {
+    appendSafeListItem_(targetContainer, copy.asListItem());
+  } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
+    targetContainer.appendHorizontalRule();
+  } else if (type === DocumentApp.ElementType.PAGE_BREAK) {
+    targetContainer.appendPageBreak();
+  } else if (type === DocumentApp.ElementType.INLINE_IMAGE) {
+    appendSafeInlineImage_(targetContainer, sourceElement.asInlineImage());
+  } else if (sourceElement.getText && sourceElement.getText()) {
+    appendSafeParagraph_(targetContainer, sourceElement.getText());
+  }
+}
+
+function appendSafeInlineImage_(targetContainer, sourceImage) {
+  try {
+    const image = targetContainer.appendImage(sourceImage.getBlob());
+    image.setWidth(sourceImage.getWidth()).setHeight(sourceImage.getHeight());
+    return image;
+  } catch (error) {
+    console.error('Gagal menyalin gambar template: ' + error.message);
+    return null;
+  }
+}
+
+function appendSafeTable_(targetContainer, sourceTable) {
+  const table = targetContainer.appendTable(sourceTable.copy());
+  copyImagesInsideTables_(sourceTable, table);
+  return table;
+}
+
+function copyImagesInsideTables_(sourceTable, targetTable) {
+  const rows = Math.min(sourceTable.getNumRows(), targetTable.getNumRows());
+  for (let r = 0; r < rows; r++) {
+    const sourceRow = sourceTable.getRow(r);
+    const targetRow = targetTable.getRow(r);
+    const cells = Math.min(sourceRow.getNumCells(), targetRow.getNumCells());
+    for (let c = 0; c < cells; c++) copyImagesInsideCell_(sourceRow.getCell(c), targetRow.getCell(c));
+  }
+}
+
+function copyImagesInsideCell_(sourceCell, targetCell) {
+  const count = Math.min(sourceCell.getNumChildren(), targetCell.getNumChildren());
+  for (let i = 0; i < count; i++) {
+    const sourceChild = sourceCell.getChild(i);
+    const targetChild = targetCell.getChild(i);
+    const type = sourceChild.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH && targetChild.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      copyParagraphImages_(sourceChild.asParagraph(), targetChild.asParagraph());
+    } else if (type === DocumentApp.ElementType.TABLE && targetChild.getType() === DocumentApp.ElementType.TABLE) {
+      copyImagesInsideTables_(sourceChild.asTable(), targetChild.asTable());
     }
   }
 }
@@ -383,6 +428,8 @@ function replaceDynamicTablePlaceholderInCell_(cell, placeholder, rows, styler) 
       if (paragraph.getText().indexOf(placeholder) === -1) continue;
       const remainingText = paragraph.getText().split(placeholder).join('').trim();
       paragraph.setText(remainingText || '\u00A0');
+      cell.setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(0).setPaddingRight(0);
+      paragraph.setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
       const nestedTable = cell.appendTable(rows);
       styler(nestedTable);
     } else if (type === DocumentApp.ElementType.TABLE) {
@@ -425,12 +472,12 @@ function insertSpdEmployeeTable_(body, people) {
 
 function buildSpdEmployeeRows_(people) {
   const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
-  const rows = [['NAMA / NIP', 'PANGKAT / GOL.', 'JABATAN', 'NOMOR SPD']];
+  const rows = [['NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
   (people.length ? people : [{}]).forEach((p, index) => {
+    const label = letters[index] ? letters[index] + '.' : (index + 1) + '.';
     const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(', ');
     rows.push([
-      safeCellText_(letters[index] ? letters[index] + '.' : (index + 1) + '.'),
-      safeCellText_([p.nama, p.nip].filter(Boolean).join(' / ')),
+      safeCellText_([label, [p.nama, p.nip].filter(Boolean).join(' / ')].filter(Boolean).join('  ')),
       safeCellText_(pangkatGol || '-'),
       safeCellText_(p.jabatan || '-'),
       safeCellText_(p.nomorSpd || '-')
@@ -443,7 +490,7 @@ function styleSpdEmployeeTable_(table) {
   table.setBorderWidth(0.5);
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-    const widths = r === 0 ? [155, 85, 105, 95] : [18, 137, 85, 105, 95];
+    const widths = [155, 95, 95, 95];
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
       if (widths[c]) cell.setWidth(widths[c]);
@@ -453,7 +500,8 @@ function styleSpdEmployeeTable_(table) {
       for (let i = 0; i < cell.getNumChildren(); i++) {
         const child = cell.getChild(i);
         if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
-          child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
+          const paragraph = child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
+          if (r === 0) paragraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
         }
       }
     }
