@@ -484,6 +484,7 @@ function buildAlphabetLabel_(index) {
   return letters[index] ? letters[index] + '.' : (index + 1) + '.';
 }
 
+<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
 function buildSpdEmployeeRows_(people) {
   const rows = [['', 'NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
   (people.length ? people : [{}]).forEach((p, index) => {
@@ -491,6 +492,26 @@ function buildSpdEmployeeRows_(people) {
     rows.push([
       safeCellText_(p.label || buildAlphabetLabel_(index)),
       safeCellText_([p.nama, p.nip].filter(Boolean).join(' / ')),
+=======
+function buildSpdPlaceholderColumns_(people) {
+  const rows = people.length ? people : [{}];
+  return {
+    alfabet: rows.map((p, index) => p.label || buildAlphabetLabel_(index)).join('\n'),
+    namaNip: rows.map(p => [p.nama, p.nip].filter(Boolean).join(' / ') || '-').join('\n'),
+    pangkatGol: rows.map(p => [p.pangkat, p.golongan].filter(Boolean).join(', ') || '-').join('\n'),
+    jabatan: rows.map(p => p.jabatan || '-').join('\n'),
+    nomorSpd: rows.map(p => p.nomorSpd || '-').join('\n')
+  };
+}
+
+function buildSpdEmployeeRows_(people) {
+  const rows = [['NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
+  (people.length ? people : [{}]).forEach((p, index) => {
+    const label = p.label || buildAlphabetLabel_(index);
+    const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(', ');
+    rows.push([
+      safeCellText_([label, [p.nama, p.nip].filter(Boolean).join(' / ')].filter(Boolean).join('  ')),
+>>>>>>> main
       safeCellText_(pangkatGol || '-'),
       safeCellText_(p.jabatan || '-'),
       safeCellText_(p.nomorSpd || '-')
@@ -501,9 +522,15 @@ function buildSpdEmployeeRows_(people) {
 
 function styleSpdEmployeeTable_(table) {
   table.setBorderWidth(0.5);
+<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
   const widths = [18, 137, 95, 95, 95];
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
+=======
+  for (let r = 0; r < table.getNumRows(); r++) {
+    const row = table.getRow(r);
+    const widths = [155, 95, 95, 95];
+>>>>>>> main
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
       if (widths[c]) cell.setWidth(widths[c]);
@@ -598,6 +625,10 @@ function buildTemplateData_(sppd, db, settings) {
     jabatan: p.jabatan || '',
     nomorSpd: buildPersonSpdNumber_(sppd.nomorSpd || sppd.nomor || '', index)
   }));
+<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
+=======
+  const spdColumns = buildSpdPlaceholderColumns_(peopleSpd);
+>>>>>>> main
   const uangHarian = Number((shs[0] || {}).uangHarian || 0);
   const transport = Number(tujuan.transport || 0);
   const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
@@ -635,6 +666,14 @@ function buildTemplateData_(sppd, db, settings) {
     DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
     __PEGAWAI_SPT: people,
     __PEGAWAI_SPD: peopleSpd,
+<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
+=======
+    TABEL_PEGAWAI_SPD_ALFABET: spdColumns.alfabet,
+    TABEL_PEGAWAI_SPD_NAMA_NIP: spdColumns.namaNip,
+    TABEL_PEGAWAI_SPD_PANGKAT_GOL: spdColumns.pangkatGol,
+    TABEL_PEGAWAI_SPD_JABATAN: spdColumns.jabatan,
+    TABEL_PEGAWAI_SPD_NOMOR_SPD: spdColumns.nomorSpd,
+>>>>>>> main
     SUMBER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
