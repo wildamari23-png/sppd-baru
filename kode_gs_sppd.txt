@@ -211,13 +211,40 @@ function ensureDocumentTemplates(settingsPayload) {
 
 function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, printOptions) {
   const settings = settingsPayload || {};
+  const options = printOptions || {};
   const ensured = ensureDocumentTemplates(settings);
   const data = buildTemplateData_(sppdData || {}, dbPayload || {}, settings);
-  const selectedTemplateKey = String((printOptions || {}).templateKey || 'spd').toLowerCase();
-  const templateId = ensured.templateIds[selectedTemplateKey] || ensured.templateIds.spd;
-  const outputFile = DriveApp.getFileById(templateId).makeCopy('Dokumen SPPD - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
+  const requestedKey = String(options.templateKey || 'all').toLowerCase();
+  const allKeys = ['spt', 'spd', 'kwitansi', 'laporan'];
+  const keys = requestedKey === 'all' ? allKeys : [requestedKey].filter(key => ensured.templateIds[key]);
+  const selectedKeys = keys.length ? keys : ['spd'];
+  const documents = {};
+  const pdfUrls = {};
+  const docUrls = {};
+
+  selectedKeys.forEach(key => {
+    const result = generateSingleTemplatePdf_(key, ensured.templateIds[key], data, options);
+    documents[key] = result;
+    pdfUrls[key] = result.pdfUrl;
+    docUrls[key] = result.docUrl;
+  });
+
+  return {
+    status: 'success',
+    templateIds: ensured.templateIds,
+    documents: documents,
+    pdfUrls: pdfUrls,
+    docUrls: docUrls,
+    pdfUrl: pdfUrls.spd || pdfUrls[selectedKeys[0]],
+    docUrl: docUrls.spd || docUrls[selectedKeys[0]]
+  };
+}
+
+function generateSingleTemplatePdf_(key, templateId, data, options) {
+  const suffix = String(key || 'dokumen').toUpperCase();
+  const outputFile = DriveApp.getFileById(templateId).makeCopy('Dokumen ' + suffix + ' - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
   const output = DocumentApp.openById(outputFile.getId());
-  if ((printOptions || {}).applyLayout === true) applyDocumentLayout_(output, printOptions || {});
+  if (options.applyLayout === true) applyDocumentLayout_(output, options);
   const body = output.getBody();
 
   insertSptEmployeeTable_(body, data.__PEGAWAI_SPT || []);
@@ -227,8 +254,7 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, prin
   const pdfBlob = DriveApp.getFileById(output.getId()).getAs(MimeType.PDF).setName(output.getName() + '.pdf');
   const pdfFile = DriveApp.createFile(pdfBlob);
   return {
-    status: 'success',
-    templateIds: ensured.templateIds,
+    key: key,
     docUrl: 'https://docs.google.com/document/d/' + output.getId() + '/edit',
     pdfUrl: pdfFile.getUrl()
   };
@@ -464,11 +490,26 @@ function insertSpdEmployeeTable_(body, people) {
   }
 }
 
-function buildSpdEmployeeRows_(people) {
+function buildAlphabetLabel_(index) {
   const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+  return letters[index] ? letters[index] + '.' : (index + 1) + '.';
+}
+
+function buildSpdPlaceholderColumns_(people) {
+  const rows = people.length ? people : [{}];
+  return {
+    alfabet: rows.map((p, index) => p.label || buildAlphabetLabel_(index)).join('\n'),
+    namaNip: rows.map(p => [p.nama, p.nip].filter(Boolean).join(' / ') || '-').join('\n'),
+    pangkatGol: rows.map(p => [p.pangkat, p.golongan].filter(Boolean).join(', ') || '-').join('\n'),
+    jabatan: rows.map(p => p.jabatan || '-').join('\n'),
+    nomorSpd: rows.map(p => p.nomorSpd || '-').join('\n')
+  };
+}
+
+function buildSpdEmployeeRows_(people) {
   const rows = [['NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
   (people.length ? people : [{}]).forEach((p, index) => {
-    const label = letters[index] ? letters[index] + '.' : (index + 1) + '.';
+    const label = p.label || buildAlphabetLabel_(index);
     const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(', ');
     rows.push([
       safeCellText_([label, [p.nama, p.nip].filter(Boolean).join(' / ')].filter(Boolean).join('  ')),
@@ -571,6 +612,7 @@ function buildTemplateData_(sppd, db, settings) {
   const rekening = findById_(rekeningRows, sppd.rekeningId) || {};
   const people = [utama].concat((sppd.pengikut || []).map(p => findById_(pegawai, p.pegawaiId)).filter(Boolean));
   const peopleSpd = people.map((p, index) => ({
+    label: buildAlphabetLabel_(index),
     nama: p.nama || '-',
     nip: p.nip || p.nipd || p.NIPD || '',
     pangkat: p.pangkat || '',
@@ -578,6 +620,7 @@ function buildTemplateData_(sppd, db, settings) {
     jabatan: p.jabatan || '',
     nomorSpd: buildPersonSpdNumber_(sppd.nomorSpd || sppd.nomor || '', index)
   }));
+  const spdColumns = buildSpdPlaceholderColumns_(peopleSpd);
   const uangHarian = Number((shs[0] || {}).uangHarian || 0);
   const transport = Number(tujuan.transport || 0);
   const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
@@ -615,6 +658,11 @@ function buildTemplateData_(sppd, db, settings) {
     DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
     __PEGAWAI_SPT: people,
     __PEGAWAI_SPD: peopleSpd,
+    TABEL_PEGAWAI_SPD_ALFABET: spdColumns.alfabet,
+    TABEL_PEGAWAI_SPD_NAMA_NIP: spdColumns.namaNip,
+    TABEL_PEGAWAI_SPD_PANGKAT_GOL: spdColumns.pangkatGol,
+    TABEL_PEGAWAI_SPD_JABATAN: spdColumns.jabatan,
+    TABEL_PEGAWAI_SPD_NOMOR_SPD: spdColumns.nomorSpd,
     SUMBER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),

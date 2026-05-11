@@ -1721,15 +1721,32 @@ ${rekening.kode_rek_objek_belanja || ''} ${rekening.nama_objek_belanja || ''}`;
                         });
                         return;
                     }
-                    const printOptions = sppdData.__paperOptions || {};
+                    const printOptions = { ...(sppdData.__paperOptions || {}), templateKey: 'all' };
                     if (this.isGAS) {
                         this.isSyncing = true;
+                        Swal.fire({
+                            title: 'Membuat Dokumen SPPD',
+                            html: '<div class="text-left text-sm text-slate-600 space-y-2"><p><b>Mohon tunggu...</b> Sistem sedang menyalin template Google Docs.</p><p>SPT, SPD, Kwitansi, dan Laporan sedang diisi lalu diekspor menjadi PDF.</p></div>',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: () => Swal.showLoading()
+                        });
                         google.script.run
                             .withSuccessHandler((res) => {
                                 this.isSyncing = false;
                                 if (res.templateIds) this.settings.templateIds = res.templateIds;
-                                if (res.pdfUrl) window.open(res.pdfUrl, '_blank');
-                                Swal.fire({ icon: 'success', title: 'PDF Siap', text: 'Dokumen dibuat dari template Google Docs.' });
+                                const labels = { spt: 'SPT', spd: 'SPD', kwitansi: 'Kwitansi', laporan: 'Laporan' };
+                                const pdfUrls = res.pdfUrls || (res.pdfUrl ? { spd: res.pdfUrl } : {});
+                                const links = Object.keys(labels).filter(key => pdfUrls[key]).map(key => `<a href="${pdfUrls[key]}" target="_blank" class="inline-flex items-center justify-between gap-3 w-full rounded-xl border border-teal-100 bg-white px-4 py-3 font-bold text-teal-700 hover:bg-teal-50"><span><i class="fas fa-file-pdf mr-2 text-red-500"></i>${labels[key]}</span><i class="fas fa-external-link-alt text-xs"></i></a>`).join('');
+                                if (pdfUrls.spd) window.open(pdfUrls.spd, '_blank');
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'PDF Siap',
+                                    width: 620,
+                                    html: `<div class="text-left space-y-3"><p class="text-sm text-slate-600">Dokumen berhasil dibuat dari template Google Docs. Klik tombol berikut untuk membuka masing-masing PDF.</p><div class="grid grid-cols-1 gap-2">${links || '<p class="text-sm text-slate-500">PDF berhasil dibuat.</p>'}</div></div>`,
+                                    confirmButtonText: 'Tutup'
+                                });
                             })
                             .withFailureHandler((err) => {
                                 this.isSyncing = false;
