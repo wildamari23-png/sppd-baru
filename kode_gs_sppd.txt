@@ -213,18 +213,12 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, prin
   const settings = settingsPayload || {};
   const ensured = ensureDocumentTemplates(settings);
   const data = buildTemplateData_(sppdData || {}, dbPayload || {}, settings);
-  const output = DocumentApp.create('Dokumen SPPD - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
-  applyDocumentLayout_(output, printOptions || {});
+  const selectedTemplateKey = String((printOptions || {}).templateKey || 'spd').toLowerCase();
+  const templateId = ensured.templateIds[selectedTemplateKey] || ensured.templateIds.spd;
+  const outputFile = DriveApp.getFileById(templateId).makeCopy('Dokumen SPPD - ' + (data.NOMOR_SPD || data.NOMOR_SPT || new Date().getTime()));
+  const output = DocumentApp.openById(outputFile.getId());
+  if ((printOptions || {}).applyLayout === true) applyDocumentLayout_(output, printOptions || {});
   const body = output.getBody();
-  body.clear();
-
-  ['spt', 'spd', 'kwitansi', 'laporan'].forEach((key, index) => {
-    const templateId = ensured.templateIds[key];
-    const templateDoc = DocumentApp.openById(templateId);
-    if (index > 0) body.appendPageBreak();
-    appendDocumentHeaderElements_(body, templateDoc);
-    appendBodyElements_(body, templateDoc.getBody());
-  });
 
   insertSptEmployeeTable_(body, data.__PEGAWAI_SPT || []);
   insertSpdEmployeeTable_(body, data.__PEGAWAI_SPD || []);
