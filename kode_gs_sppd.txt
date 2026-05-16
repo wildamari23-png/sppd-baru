@@ -479,7 +479,7 @@ function buildSpdEmployeeRows_(people) {
 }
 
 function styleSpdEmployeeTable_(table) {
-  // Border minimal - hanya header yang punya garis bawah tipis
+  // Borderless table untuk tampilan lebih bersih (sesuai permintaan)
   table.setBorderWidth(0);
   
   const widths = [25, 150, 110, 110, 90];
@@ -492,19 +492,9 @@ function styleSpdEmployeeTable_(table) {
       cell.editAsText().setFontSize(9);
       
       if (r === 0) {
-        // Header row - hanya garis bawah
-        cell.setBorderBottom(1);
-        cell.setBorderTop(0);
-        cell.setBorderLeft(0);
-        cell.setBorderRight(0);
+        // Header: bold + background abu-abu muda
         cell.editAsText().setBold(true);
         cell.setBackgroundColor('#f5f5f5');
-      } else {
-        // Data rows - tanpa border kiri dan bawah
-        cell.setBorderBottom(0);
-        cell.setBorderLeft(0);
-        cell.setBorderRight(0);
-        cell.setBorderTop(0);
       }
       
       for (let i = 0; i < cell.getNumChildren(); i++) {
@@ -631,7 +621,7 @@ function buildTemplateData_(sppd, db, settings) {
     DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
     __PEGAWAI_SPT: people,
     __PEGAWAI_SPD: peopleSpd,
-    SUMBER_DANA: sumberDana || '-',
+    SUMMER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
     TRANSPORT: formatNumber_(transport),
