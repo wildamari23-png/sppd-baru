@@ -1,5 +1,4 @@
 function doGet(e) {
-  // Merender file Index.html
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('e-SPPD UPTD Puskesmas')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -50,9 +49,6 @@ function serializeSheetValue_(value, header) {
   return value;
 }
 
-// ==========================================
-// FUNGSI MEMUAT DATA DARI GOOGLE SHEETS
-// ==========================================
 function loadAllData() {
   const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
   const sheets = ['Pegawai', 'Jabatan', 'Rekening', 'Shs', 'Lokasi', 'TempatBerangkat', 'Pertimbangan', 'Sppd'];
@@ -101,9 +97,6 @@ function loadAllData() {
   return { db: db, settings: settings, absensiStatus: {} };
 }
 
-// ==========================================
-// FUNGSI STATUS ABSENSI PEGAWAI
-// ==========================================
 function getAbsensiStatus(pegawaiIds, tanggalBerangkat) {
   return loadAbsensiStatus_(tanggalBerangkat, pegawaiIds || []);
 }
@@ -172,9 +165,6 @@ function normalizeDateKey_(value) {
   return text;
 }
 
-// ==========================================
-// FUNGSI TEMPLATE GOOGLE DOCS & PDF
-// ==========================================
 function ensureDocumentTemplates(settingsPayload) {
   const settings = settingsPayload || {};
   const templateIds = settings.templateIds || {};
@@ -473,11 +463,13 @@ function buildAlphabetLabel_(index) {
 }
 
 function buildSpdEmployeeRows_(people) {
-  const rows = [['', 'NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
+  // Header sesuai form resmi SPD
+  const rows = [['No', 'NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
   (people.length ? people : [{}]).forEach((p, index) => {
+    const label = p.label || buildAlphabetLabel_(index);
     const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(', ');
     rows.push([
-      safeCellText_(p.label || buildAlphabetLabel_(index)),
+      safeCellText_(label),
       safeCellText_([p.nama, p.nip].filter(Boolean).join(' / ')),
       safeCellText_(pangkatGol || '-'),
       safeCellText_(p.jabatan || '-'),
@@ -489,20 +481,23 @@ function buildSpdEmployeeRows_(people) {
 
 function styleSpdEmployeeTable_(table) {
   table.setBorderWidth(0.5);
-  const widths = [18, 137, 95, 95, 95];
+  // Lebar kolom disesuaikan agar rapi seperti form resmi
+  const widths = [25, 150, 110, 110, 90];
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
       if (widths[c]) cell.setWidth(widths[c]);
-      cell.setPaddingTop(0).setPaddingBottom(0).setPaddingLeft(1).setPaddingRight(1);
-      cell.editAsText().setFontSize(7);
-      if (r === 0) cell.editAsText().setBold(true);
+      cell.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(4).setPaddingRight(4);
+      cell.editAsText().setFontSize(9);
+      if (r === 0) {
+        cell.editAsText().setBold(true);
+        cell.setBackgroundColor('#f0f0f0');
+      }
       for (let i = 0; i < cell.getNumChildren(); i++) {
         const child = cell.getChild(i);
         if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
-          const paragraph = child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
-          if (r === 0) paragraph.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+          child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
         }
       }
     }
@@ -551,7 +546,7 @@ function getDefaultTemplateDefinitions_() {
     },
     spd: {
       name: 'SPD',
-      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERJALANAN DINAS (SPD)\nNomor: {{NOMOR_SPD}}\nTanggal Surat: {{TANGGAL_SPD}}\n\nPejabat pemberi perintah: Kepala UPTD Puskesmas Tanjung Puri\nPegawai yang melaksanakan Perjalanan Dinas:\n{{TABEL_PEGAWAI_SPD}}\nMaksud: {{MAKSUD}}\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTempat Tujuan: {{TUJUAN}}\nLama Perjalanan: {{LAMA_HARI}} hari\nPembebanan Rekening:\n{{REKENING}}\n\nSintang, {{TANGGAL_SPD}}\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
+      content: '{{KOP_INSTANSI}}\n{{KOP_DINAS}}\n{{KOP_UPTD}}\n{{KOP_ALAMAT}}\n\nSURAT PERJALANAN DINAS (SPD)\nNomor: {{NOMOR_SPD}}\nTanggal Surat: {{TANGGAL_SPD}}\n\nPejabat pemberi perintah: Kepala UPTD Puskesmas Tanjung Puri\n\nPegawai yang melaksanakan Perjalanan Dinas :\n{{TABEL_PEGAWAI_SPD}}\n\nMaksud: {{MAKSUD}}\nTempat Berangkat: {{TEMPAT_BERANGKAT}}\nTempat Tujuan: {{TUJUAN}}\nLama Perjalanan: {{LAMA_HARI}} hari\nPembebanan Rekening:\n{{REKENING}}\n\nSintang, {{TANGGAL_SPD}}\n{{KEPALA_NAMA}}\nNIP. {{KEPALA_NIP}}'
     },
     kwitansi: {
       name: 'Kwitansi',
@@ -693,9 +688,6 @@ function normalizeDateTimeForSheet_(value) {
   return text;
 }
 
-// ==========================================
-// FUNGSI MENYIMPAN DATA KE GOOGLE SHEETS
-// ==========================================
 function saveDatabase(dbPayload, settingsPayload) {
   const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
   const lock = LockService.getScriptLock();
