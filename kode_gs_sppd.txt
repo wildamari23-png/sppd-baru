@@ -479,10 +479,10 @@ function buildSpdEmployeeRows_(people) {
 }
 
 function styleSpdEmployeeTable_(table) {
-  // Border tipis agar rapi, tanpa warna background di header
   table.setBorderWidth(0.5);
   
-  const widths = [25, 150, 110, 110, 90];
+  // Lebar kolom disesuaikan agar NOMOR SPD tidak terpotong
+  const widths = [22, 135, 105, 105, 115];
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
     for (let c = 0; c < row.getNumCells(); c++) {
@@ -493,7 +493,6 @@ function styleSpdEmployeeTable_(table) {
       
       if (r === 0) {
         cell.editAsText().setBold(true);
-        // Tidak ada background color
       }
       
       for (let i = 0; i < cell.getNumChildren(); i++) {
