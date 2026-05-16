@@ -463,7 +463,6 @@ function buildAlphabetLabel_(index) {
 }
 
 function buildSpdEmployeeRows_(people) {
-  // Header sesuai form resmi SPD
   const rows = [['No', 'NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
   (people.length ? people : [{}]).forEach((p, index) => {
     const label = p.label || buildAlphabetLabel_(index);
@@ -480,24 +479,38 @@ function buildSpdEmployeeRows_(people) {
 }
 
 function styleSpdEmployeeTable_(table) {
-  table.setBorderWidth(0.5);
-  // Lebar kolom disesuaikan agar rapi seperti form resmi
+  // Border minimal - hanya header yang punya garis bawah tipis
+  table.setBorderWidth(0);
+  
   const widths = [25, 150, 110, 110, 90];
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
       if (widths[c]) cell.setWidth(widths[c]);
-      cell.setPaddingTop(3).setPaddingBottom(3).setPaddingLeft(4).setPaddingRight(4);
+      cell.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
       cell.editAsText().setFontSize(9);
+      
       if (r === 0) {
+        // Header row - hanya garis bawah
+        cell.setBorderBottom(1);
+        cell.setBorderTop(0);
+        cell.setBorderLeft(0);
+        cell.setBorderRight(0);
         cell.editAsText().setBold(true);
-        cell.setBackgroundColor('#f0f0f0');
+        cell.setBackgroundColor('#f5f5f5');
+      } else {
+        // Data rows - tanpa border kiri dan bawah
+        cell.setBorderBottom(0);
+        cell.setBorderLeft(0);
+        cell.setBorderRight(0);
+        cell.setBorderTop(0);
       }
+      
       for (let i = 0; i < cell.getNumChildren(); i++) {
         const child = cell.getChild(i);
         if (child.getType() === DocumentApp.ElementType.PARAGRAPH) {
-          child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1);
+          child.asParagraph().setSpacingBefore(0).setSpacingAfter(0).setLineSpacing(1.1);
         }
       }
     }
