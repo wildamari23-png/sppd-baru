@@ -36,7 +36,6 @@ function normalizeLokasiRow_(row, rowIndex) {
   };
 }
 
-
 function serializeSheetValue_(value, header) {
   if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
     const key = String(header || '').toLowerCase();
@@ -70,7 +69,6 @@ function loadAllData() {
           let obj = {};
           for (let j = 0; j < headers.length; j++) {
             let val = serializeSheetValue_(data[i][j], headers[j]);
-            // Jika data berupa JSON String (seperti array pengikut), parsing kembali
             try {
                if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
                  val = JSON.parse(val);
@@ -90,13 +88,11 @@ function loadAllData() {
     }
   });
   
-  // Memuat Pengaturan dari Sheet 'Settings'
   let settings = null;
   const setSheet = ss.getSheetByName('Settings');
   if(setSheet && setSheet.getLastRow() > 0) {
      const setData = setSheet.getDataRange().getValues();
      try {
-         // Menggabungkan kembali potongan-potongan string dari baris A1, A2, A3, dst
          const fullString = setData.map(row => row[0]).join('');
          settings = JSON.parse(fullString);
      } catch(e) {}
@@ -104,7 +100,6 @@ function loadAllData() {
 
   return { db: db, settings: settings, absensiStatus: {} };
 }
-
 
 // ==========================================
 // FUNGSI STATUS ABSENSI PEGAWAI
@@ -131,8 +126,6 @@ function loadAbsensiStatus_(tanggalBerangkat, pegawaiIds) {
     if (!sheet || sheet.getLastRow() < 2) return statusMap;
 
     const values = sheet.getDataRange().getValues();
-    // Kolom B = tanggal absensi, Kolom E = ID_QR, Kolom K = Keterangan/status kehadiran, Kolom L = keterangan TL.
-    // Dibaca dari bawah agar data absensi terbaru per pegawai pada tanggal berangkat menjadi prioritas.
     for (let i = values.length - 1; i >= 1; i--) {
       const row = values[i];
       const rowDateKey = normalizeDateKey_(row[1]);
@@ -178,7 +171,6 @@ function normalizeDateKey_(value) {
   if (!isNaN(parsed.getTime())) return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   return text;
 }
-
 
 // ==========================================
 // FUNGSI TEMPLATE GOOGLE DOCS & PDF
@@ -248,7 +240,6 @@ function generateSppdPdfFromTemplates(sppdData, dbPayload, settingsPayload, prin
     pdfUrl: pdfFile.getUrl()
   };
 }
-
 
 function appendBodyElements_(targetBody, sourceBody) {
   const count = sourceBody.getNumChildren();
@@ -401,9 +392,6 @@ function insertSptEmployeeTable_(body, people) {
   const placeholder = '{{TABEL_PEGAWAI_SPT}}';
   const rows = buildSptEmployeeRows_(people || []);
 
-  // Placeholder bisa diletakkan sebagai paragraf biasa atau di dalam sel tabel template.
-  // Jika berada di dalam sel tabel, tabel pegawai disisipkan sebagai nested table transparan
-  // agar menyatu dengan layout tabel Google Docs yang sudah diedit pengguna.
   for (let i = body.getNumChildren() - 1; i >= 0; i--) {
     const child = body.getChild(i);
     const type = child.getType();
@@ -484,7 +472,6 @@ function buildAlphabetLabel_(index) {
   return letters[index] ? letters[index] + '.' : (index + 1) + '.';
 }
 
-<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
 function buildSpdEmployeeRows_(people) {
   const rows = [['', 'NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
   (people.length ? people : [{}]).forEach((p, index) => {
@@ -492,26 +479,6 @@ function buildSpdEmployeeRows_(people) {
     rows.push([
       safeCellText_(p.label || buildAlphabetLabel_(index)),
       safeCellText_([p.nama, p.nip].filter(Boolean).join(' / ')),
-=======
-function buildSpdPlaceholderColumns_(people) {
-  const rows = people.length ? people : [{}];
-  return {
-    alfabet: rows.map((p, index) => p.label || buildAlphabetLabel_(index)).join('\n'),
-    namaNip: rows.map(p => [p.nama, p.nip].filter(Boolean).join(' / ') || '-').join('\n'),
-    pangkatGol: rows.map(p => [p.pangkat, p.golongan].filter(Boolean).join(', ') || '-').join('\n'),
-    jabatan: rows.map(p => p.jabatan || '-').join('\n'),
-    nomorSpd: rows.map(p => p.nomorSpd || '-').join('\n')
-  };
-}
-
-function buildSpdEmployeeRows_(people) {
-  const rows = [['NAMA / NIP', 'PANGKAT dan GOLONGAN', 'JABATAN', 'NOMOR SPD']];
-  (people.length ? people : [{}]).forEach((p, index) => {
-    const label = p.label || buildAlphabetLabel_(index);
-    const pangkatGol = [p.pangkat, p.golongan].filter(Boolean).join(', ');
-    rows.push([
-      safeCellText_([label, [p.nama, p.nip].filter(Boolean).join(' / ')].filter(Boolean).join('  ')),
->>>>>>> main
       safeCellText_(pangkatGol || '-'),
       safeCellText_(p.jabatan || '-'),
       safeCellText_(p.nomorSpd || '-')
@@ -522,15 +489,9 @@ function buildSpdEmployeeRows_(people) {
 
 function styleSpdEmployeeTable_(table) {
   table.setBorderWidth(0.5);
-<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
   const widths = [18, 137, 95, 95, 95];
   for (let r = 0; r < table.getNumRows(); r++) {
     const row = table.getRow(r);
-=======
-  for (let r = 0; r < table.getNumRows(); r++) {
-    const row = table.getRow(r);
-    const widths = [155, 95, 95, 95];
->>>>>>> main
     for (let c = 0; c < row.getNumCells(); c++) {
       const cell = row.getCell(c);
       if (widths[c]) cell.setWidth(widths[c]);
@@ -625,10 +586,6 @@ function buildTemplateData_(sppd, db, settings) {
     jabatan: p.jabatan || '',
     nomorSpd: buildPersonSpdNumber_(sppd.nomorSpd || sppd.nomor || '', index)
   }));
-<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
-=======
-  const spdColumns = buildSpdPlaceholderColumns_(peopleSpd);
->>>>>>> main
   const uangHarian = Number((shs[0] || {}).uangHarian || 0);
   const transport = Number(tujuan.transport || 0);
   const total = (uangHarian * Number(sppd.lamaHari || 0) * people.length) + (transport * people.length);
@@ -666,14 +623,6 @@ function buildTemplateData_(sppd, db, settings) {
     DAFTAR_PEGAWAI_SPT: daftarPegawaiSpt,
     __PEGAWAI_SPT: people,
     __PEGAWAI_SPD: peopleSpd,
-<<<<<<< codex/update-appscrip-for-automatic-spt-and-spd-format-bewi12
-=======
-    TABEL_PEGAWAI_SPD_ALFABET: spdColumns.alfabet,
-    TABEL_PEGAWAI_SPD_NAMA_NIP: spdColumns.namaNip,
-    TABEL_PEGAWAI_SPD_PANGKAT_GOL: spdColumns.pangkatGol,
-    TABEL_PEGAWAI_SPD_JABATAN: spdColumns.jabatan,
-    TABEL_PEGAWAI_SPD_NOMOR_SPD: spdColumns.nomorSpd,
->>>>>>> main
     SUMBER_DANA: sumberDana || '-',
     REKENING: [rekening.kode_rek_kegiatan + ' ' + rekening.nama_kegiatan, rekening.kode_rek_sub_kegiatan + ' ' + rekening.nama_sub_Kegiatan, rekening.kode_rek_objek_belanja + ' ' + rekening.nama_objek_belanja].filter(Boolean).join('\n'),
     UANG_HARIAN: formatNumber_(uangHarian),
@@ -682,7 +631,6 @@ function buildTemplateData_(sppd, db, settings) {
     LAPORAN_HASIL: sppd.laporanHasil || 'Belum ada uraian laporan kegiatan yang diinput.'
   };
 }
-
 
 function normalizeBaseSpdNumber_(baseNumber) {
   return String(baseNumber || '').trim().replace(/-\d+$/, '');
@@ -752,21 +700,18 @@ function saveDatabase(dbPayload, settingsPayload) {
   const ss = SpreadsheetApp.openById(MAIN_SPREADSHEET_ID);
   const lock = LockService.getScriptLock();
   
-  // Mencegah bentrok jika ada banyak user menyimpan bersamaan
   lock.tryLock(10000); 
   
   try {
-    // 1. Simpan Data Master & Transaksi (Tabel DB)
     for (let key in dbPayload) {
-      const sheetName = key === 'tempatBerangkat' ? 'TempatBerangkat' : key.charAt(0).toUpperCase() + key.slice(1); // Kapitalisasi nama sheet
+      const sheetName = key === 'tempatBerangkat' ? 'TempatBerangkat' : key.charAt(0).toUpperCase() + key.slice(1);
       let sheet = ss.getSheetByName(sheetName);
       
-      // Jika sheet belum ada, buat otomatis
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
       }
       
-      sheet.clear(); // Bersihkan data lama
+      sheet.clear();
       
       const dataArray = dbPayload[key];
       const defaultHeaders = {
@@ -790,34 +735,29 @@ function saveDatabase(dbPayload, settingsPayload) {
           const row = headers.map(h => {
              let val = item[h];
              if (h === 'createdAt') return normalizeDateTimeForSheet_(val);
-             // Ubah Array/Object menjadi string agar bisa masuk ke dalam sel Excel
              if (typeof val === 'object' && val !== null) return JSON.stringify(val);
              return val === undefined ? '' : val;
           });
           rows.push(row);
         });
         
-        // Tulis semua baris baru ke dalam sheet sekaligus agar cepat
         sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
       }
     }
 
-    // 2. Simpan Pengaturan & Logo dengan metode Chunking (Pemotongan)
-    // Untuk menghindari limit 50.000 karakter per cell di Google Sheets
     if(settingsPayload) {
       let setSheet = ss.getSheetByName('Settings');
       if(!setSheet) setSheet = ss.insertSheet('Settings');
       setSheet.clear();
       
       const jsonString = JSON.stringify(settingsPayload);
-      const chunkSize = 45000; // Batas aman di bawah 50.000 karakter
+      const chunkSize = 45000;
       const chunks = [];
       
       for (let i = 0; i < jsonString.length; i += chunkSize) {
         chunks.push([jsonString.substring(i, i + chunkSize)]);
       }
       
-      // Menyimpan tiap potongan ke baris yang berurutan di Kolom A
       if (chunks.length > 0) {
         setSheet.getRange(1, 1, chunks.length, 1).setValues(chunks);
       }
